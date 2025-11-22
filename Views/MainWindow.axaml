@@ -15,7 +15,25 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Bye}" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-    <!-- <TextBox Text="{Binding Greeting}" /> -->
+    <Grid RowDefinitions="auto,*" x:Name="Root">
+        <Grid Grid.Row="0" ColumnDefinitions='auto, *'>
+            <TextBlock Grid.Column="0">Bittorrent client</TextBlock>
+            <Button Command="{Binding AddTorrentCommand}" Grid.Column="1">Add torrent</Button>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1">
+            <ItemsControl ItemsSource="{Binding Torrents}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="vm:TorrentViewModel">
+                        <Grid ColumnDefinitions="auto, *, *">
+                            <TextBlock Text="{Binding Name}" Grid.Column="0"/>
+                            <TextBlock Text="{Binding PercentComplete}" Grid.Column="1"/>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding PercentComplete, Mode=OneWay}" IsEnabled="False" Grid.Column="2"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
 
 </Window>
