@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -75,15 +76,37 @@ public class TorrentTask
             Console.WriteLine(e.Message);
             return;
         }
-        foreach (var key in body.Keys)
-            Console.WriteLine(key);
-        // foreach (var p in body.Get<BList>("peers"))
-        //     Console.WriteLine(p);
-        foreach (var p in ParsePeers(body.Get<BList>("peers")))
-            Console.WriteLine(p.PeerId);
+        var peers = ParsePeers(body["peers"]);
+        if (peers.Count() == 0)
+            Console.WriteLine("no peers");
+        foreach (var p in peers)
+            Console.WriteLine(p);
+
     }
 
-    private static IEnumerable<Peer> ParsePeers(BList peersList)
+    private static IEnumerable<Peer> ParsePeers(IBObject peers)
+    {
+        if (peers is BString s)
+            return ParsePeerString(s);
+        if (peers is BList l)
+            return ParsePeerList(l);
+        throw new ParseException("Peers object must be either a dictionary or a list.");
+    }
+
+    private static IEnumerable<Peer> ParsePeerString(BString peers)
+    {
+        var res = new List<Peer>();
+        var buf = peers.Value;
+        for (int i = 0; i < peers.Length / 6; i++)
+        {
+            var addr = new IPAddress(buf.Slice(i * 6, 4).ToArray());
+            var port = BitConverter.ToInt16(buf.Slice(i * 6 + 4, 2).ToArray(), 0);
+            res.Add(new Peer(addr, port, null));
+        }
+        return res;
+    }
+
+    private static IEnumerable<Peer> ParsePeerList(BList peersList)
     {
         if (peersList is null)
         {
@@ -96,24 +119,12 @@ public class TorrentTask
         {
             if (peerDict is not BDictionary peer)
                 continue;
-            var id = peer.Get<BString>("id").ToString();
-            var ip = peer.Get<BString>("ip");
-            var port = peer.Get<BNumber>("port").Value;
+            var ip = new IPAddress(peer.Get<BString>("ip").Value.ToArray());
+            var port = (int)peer.Get<BNumber>("port").Value;
+            var id = peer.Get<BString>("id").Value.ToArray();
+            peers.Add(new Peer(ip, port, id));
             Console.WriteLine(id);
         }
         return peers;
-    }
-    private static string InterspersePercent(string input)
-    {
-        string res = "";
-        for (int i = 0; i < input.Length; i++)
-        {
-            if (i % 2 == 0)
-            {
-                res += "%";
-            }
-            res += input[i];
-        }
-        return res;
     }
 }

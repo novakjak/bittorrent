@@ -60,12 +60,12 @@ public class PeerConnection
 
         if (handshake.Span[0] != len)
             throw new HandShakeException("Recieved invalid protocol name length from peer.");
-        if (handshake.Slice(1, 20).ToArray() != protocolName)
+        if (handshake.Slice(1, len).ToArray() != protocolName)
             throw new HandShakeException("Recieved invalid protocol name from peer.");
         // Skip checking reserved bytes (20..28)
-        if (handshake.Slice(28, 48).ToArray() != InfoHash)
+        if (handshake.Slice(1 + len + 8, 20).ToArray() != InfoHash)
             throw new HandShakeException("Info hash recieved from peer differs from the one sent.");
-        if (handshake.Slice(48, 68).ToArray() != Peer.PeerId)
+        if (Peer.PeerId is not null && handshake.Slice(1 + len + 8 + 20, 20).ToArray() != Peer.PeerId)
             throw new HandShakeException("Peer's id mismatched.");
         Console.WriteLine($"Got peer {Peer.PeerId}");
     }
