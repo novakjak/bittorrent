@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace bittorrent.Models;
 
-public class Peer
+public class Peer : IEquatable<Peer>
 {
     public IPAddress Ip { get; set; }
     public int Port { get; set; }
@@ -24,5 +24,10 @@ public class Peer
     public override string ToString()
     {
         return $"{Ip}:{Port}";
+    }
+
+    public bool Equals(Peer? other)
+    {
+        return other is not null && this.Ip == other.Ip && this.Port == other.Port;
     }
 }

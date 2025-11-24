@@ -30,4 +30,18 @@ public static class Util
 	}
 	public static UInt32 FromNetworkOrderBytes(byte[] buffer, int offset) =>
 		(UInt32)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer, offset));
+
+	public static byte BitReverse(byte b)
+	{
+		byte res = 0;
+		res |= (byte)((b & 1 << 0) << 7);
+		res |= (byte)((b & 1 << 1) << 5);
+		res |= (byte)((b & 1 << 2) << 3);
+		res |= (byte)((b & 1 << 3) << 1);
+		res |= (byte)((b & 1 << 4) >> 1);
+		res |= (byte)((b & 1 << 5) >> 3);
+		res |= (byte)((b & 1 << 6) >> 5);
+		res |= (byte)((b & 1 << 7) >> 7);
+		return res;
+	}
 }

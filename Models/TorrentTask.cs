@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Channels;
 using System.Security.Cryptography;
 using BencodeNET.Parsing;
 using BencodeNET.Objects;
@@ -16,34 +17,85 @@ namespace bittorrent.Models;
 
 public class TorrentTask
 {
-    private static readonly HttpClient client = new();
-
     public readonly BT.Torrent Torrent;
     public int PeerCount { get; private set; } = 0;
     public int Uploaded { get; private set; } = 0;
     public int Downloaded { get; private set; } = 0;
     public int DownloadedValid { get; private set; } = 0;
 
-
-    private Thread? _thread;
+    private Task? _thread;
     private string _peerId = "randompeeridaaaaaaaa";
+    private List<Peer> _peers = new();
+    private Channel<ICtrlMsg> _mainCtrlChannel;
+    private BitArray _downloadedPieces;
+
+    private static readonly HttpClient client = new();
 
     public void Start()
     {
-        _thread ??= new Thread(new ThreadStart(this.Work));
-        _thread.Start();
+        _thread ??= Task.Run(this.ManagePeers);
     }
 
     public TorrentTask(BT.Torrent torrent)
     {
         Torrent = torrent;
+        _downloadedPieces = new BitArray(Torrent.NumberOfPieces);
+        _mainCtrlChannel = Channel.CreateUnbounded<ICtrlMsg>();
     }
 
-    private async void Work()
+    private async Task ManagePeers()
     {
+        var connections = new List<PeerConnection>();
+        await Announce();
+
+        // Main control loop
+        var rx = _mainCtrlChannel.Reader;
+        while (await rx.WaitToReadAsync())
+        {
+            var message = await rx.ReadAsync();
+            switch (message)
+            {
+                case NewPeer np: {
+                    if (connections.Select(pc => pc.Peer).Contains(np.Peer))
+                        break;
+                    connections.Add(np.PeerConnection);
+                    Console.WriteLine($"Added Connection: {np.Peer}");
+                    break;
+                }
+                case RequestPieces rp: {
+                    Console.WriteLine("reques gotten");
+                    var canDownload = rp.PeerConnection.PeerHas;
+                    var leftToDownload = new BitArray(_downloadedPieces);
+                    leftToDownload.Not();
+                    var needToDownload = leftToDownload.And(canDownload);
+                    var pieces = needToDownload.OfType<bool>()
+                        .Index()
+                        .Where(p => p.Item2)
+                        .Select(p => p.Item1).ToArray();
+                    if (pieces.Length == 0)
+                    {
+                        Console.WriteLine("no pieces to send");
+                        break;
+                    }
+
+                    var rng = new Random();
+                    rng.Shuffle(pieces);
+                    var conn = connections.First(c => c.Peer == rp.Peer);
+                    var msg = new SupplyPieces(rp.Peer, pieces.Take(20).ToList());
+                    Console.WriteLine("reques setnt");
+                    await conn.PeerChannel.Writer.WriteAsync(msg);
+                    break;
+                }
+            }
+        }
+    }
+
+    private async Task Announce()
+    {
+        // TODO: use more trackers
+        var peerId = Encoding.ASCII.GetBytes(_peerId);
         var tracker = Torrent.Trackers[0][0];
         var urlencoded = System.Web.HttpUtility.UrlEncode(Torrent.OriginalInfoHashBytes);
-
         var query = $"info_hash={urlencoded}";
         query += $"&peer_id={_peerId}";
         query += $"&port=8085";
@@ -52,8 +104,7 @@ public class TorrentTask
         query += $"&left={Torrent.TotalSize - DownloadedValid}";
 
         var message = new HttpRequestMessage(HttpMethod.Get, $"{tracker}?{query}");
-        
-        // TODO: exception handling
+
         BDictionary body;
         try
         {
@@ -77,26 +128,15 @@ public class TorrentTask
             Console.WriteLine(e.Message);
             return;
         }
-        var peers = ParsePeers(body["peers"]);
-        foreach (var p in peers)
-            Console.WriteLine(p);
-        var tasks = peers.Select(
-            p => PeerConnection.CreateAsync(p, Torrent.OriginalInfoHashBytes, Encoding.ASCII.GetBytes(_peerId))
-        );
-        await DistributeWorkToPeers((await Task.WhenAll(tasks)).Where(p => p is not null));
-    }
-
-    private async Task DistributeWorkToPeers(IEnumerable<PeerConnection> peers)
-    {
-        var downloadedPieces = new BitArray(Torrent.NumberOfPieces);
-        foreach (var peer in peers)
+        foreach (var peer in ParsePeers(body["peers"]))
         {
-            // var peer = await peers.FirstAsync();
-            Console.WriteLine($"reading from {peer}");
-            var msgs = await peer.RecieveMessages();
-            foreach (var msg in msgs)
-                Console.WriteLine(msg);
-            // peers.Append(Task.Yield(peer));
+            var peerChannel = Channel.CreateUnbounded<ICtrlMsg>();
+            _ = Task.Run(async () => {
+                var pc = await PeerConnection
+                    .CreateAsync(peer, Torrent,
+                                 peerId, _mainCtrlChannel, peerChannel);
+                await _mainCtrlChannel.Writer.WriteAsync(new NewPeer(pc));
+            });
         }
     }
 
@@ -116,7 +156,7 @@ public class TorrentTask
         for (int i = 0; i < peers.Length / 6; i++)
         {
             var addr = new IPAddress(buf.Slice(i * 6, 4).ToArray());
-            var port = IPAddress.NetworkToHostOrder(
+            var port = (int)(UInt16)IPAddress.NetworkToHostOrder(
                 BitConverter.ToInt16(buf.Slice(i * 6 + 4, 2).ToArray(), 0)
             );
             res.Add(new Peer(addr, port, null));

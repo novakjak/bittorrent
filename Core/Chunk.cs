@@ -1,6 +1,7 @@
 using System;
 public sealed class Chunk
 {
+	public const int DEFAULT_CHUNK_SIZE = 16384; // 2^14 or 16 kiB
 	public UInt32 Idx { get; }
 	public UInt32 Begin { get; }
 	public byte[] Data { get; }

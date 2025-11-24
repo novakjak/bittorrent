@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 
 // TODO: implement bitfield
 
@@ -34,8 +35,18 @@ public static class PeerMessageParser
 				return new Have(idx);
 			}
 			case 5: {
-				// TODO: implement bitfield
-				return null;
+				if (len <= 1) return null;
+				var buf = new byte[len - 1];
+				Array.Copy(message, 5, buf, 0, buf.Length);
+				// Since BitArray stores indexes the bits in a byte
+				// from LSB to MSB it is required to reverse the bits.
+				for (int i = 0; i < buf.Length; i++)
+				{
+					buf[i] = Util.BitReverse(buf[i]);
+				}
+				var bitfield = new BitArray(buf);
+
+				return new Bitfield(bitfield);
 			}
 			case 6: {
 				if (len != 13) return null;
@@ -69,6 +80,7 @@ public static class PeerMessageParser
 public interface IPeerMessage
 {
 	public byte[] ToBytes();
+	// TODO: implement HandleMessage so we can use dependency injection
 }
 
 public class KeepAlive : IPeerMessage
@@ -108,6 +120,31 @@ public class Have : IPeerMessage
 	}
 	
 }
+public class Bitfield : IPeerMessage
+{
+	public BitArray Data { get; set; }
+	public byte[] ToBytes()
+	{
+		var bitfieldLen = Data.Count / 8;
+		if (Data.Count % 8 != 0)
+			bitfieldLen += 1;
+		var buf = new byte[5 + bitfieldLen];
+		Util.GetNetworkOrderBytes((UInt32)(bitfieldLen + 1)).CopyTo(buf, 0);
+		buf[4] = 5;
+		Data.CopyTo(buf, 5);
+		// Since BitArray.Copy fills bytes from the least significant bit
+		// it is needed to reverse all of the bytes of the bitfield.
+		for (int i = 5; i < buf.Length; i++)
+		{
+			buf[i] = Util.BitReverse(buf[i]);
+		}
+		return buf;
+	}
+	public Bitfield(BitArray bitfield)
+	{
+		Data = bitfield;
+	}
+}
 public class Request : IPeerMessage
 {
 	public UInt32 Idx { get; set; }
@@ -131,23 +168,23 @@ public class Request : IPeerMessage
 	}
 }
 public class Piece : IPeerMessage {
-	public UInt32 Idx { get; set; }
-	public UInt32 Begin { get; set; }
-	public byte[] Chunk { get; set; }
+	public Chunk Chunk { get; set; }
 	public byte[] ToBytes()
 	{
-		var buf = new byte[13 + Chunk.Length];
-		Util.GetNetworkOrderBytes(9 + (UInt32)Chunk.Length).CopyTo(buf, 0);
+		var buf = new byte[13 + Chunk.Data.Length];
+		Util.GetNetworkOrderBytes(9 + (UInt32)Chunk.Data.Length).CopyTo(buf, 0);
 		buf[4] = 7;
-		Util.GetNetworkOrderBytes(Idx).CopyTo(buf, 5);
-		Util.GetNetworkOrderBytes(Begin).CopyTo(buf, 9);
-		Chunk.CopyTo(buf, 13);
+		Util.GetNetworkOrderBytes(Chunk.Idx).CopyTo(buf, 5);
+		Util.GetNetworkOrderBytes(Chunk.Begin).CopyTo(buf, 9);
+		Chunk.Data.CopyTo(buf, 13);
 		return buf;
 	}
-	public Piece(UInt32 idx, UInt32 begin, byte[] chunk)
+	public Piece(UInt32 idx, UInt32 begin, byte[] data)
 	{
-		Idx = idx;
-		Begin = begin;
+		Chunk = new Chunk(idx, begin, data);
+	}
+	public Piece(Chunk chunk)
+	{
 		Chunk = chunk;
 	}
 }
