@@ -15,11 +15,14 @@ namespace bittorrent.Models;
 
 public class PeerConnection
 {
+    public const int CHUNK_SIZE = 16384; // 2^14 aka 16 kiB
+
     public Peer Peer { get; }
     public Torrent Torrent { get; }
     public byte[] PeerId { get; }
     public Channel<ICtrlMsg> PeerChannel { get; }
     public BitArray PeerHas { get; private set; }
+    public BitArray Have { get; set; }
 
     private bool _amChoked = true;
     private bool _isChoked = true;
@@ -28,7 +31,7 @@ public class PeerConnection
     private List<IPeerMessage> _queuedMsgs = new();
     private List<int> _piecesToDownload = new();
     private Task? _listenerTask;
-    private Task? _downloaderTask;
+    private Task? _controlTask;
 
     private readonly Channel<ICtrlMsg> _ctrlChannel;
     private readonly TcpClient _client;
@@ -36,7 +39,8 @@ public class PeerConnection
     private PeerConnection(
         Peer peer, Torrent torrent, byte[] peerId,
         Channel<ICtrlMsg> ctrlChannel,
-        Channel<ICtrlMsg> peerChannel
+        Channel<ICtrlMsg> peerChannel,
+        BitArray have
     )
     {
         if (peerId.Length != 20)
@@ -49,11 +53,27 @@ public class PeerConnection
         PeerId = peerId;
         PeerChannel = peerChannel;
         PeerHas = new BitArray(Torrent.NumberOfPieces);
+        Have = have;
         _ctrlChannel = ctrlChannel;
         _client = new TcpClient();
     }
 
-    public async Task ListenOnMessages()
+    public static async Task<PeerConnection> CreateAsync(
+        Peer peer, Torrent torrent, byte[] peerId,
+        Channel<ICtrlMsg> ctrlChannel,
+        Channel<ICtrlMsg> peerChannel,
+        BitArray have
+    )
+    {
+        var pc = new PeerConnection(peer, torrent, peerId, ctrlChannel, peerChannel, have);
+        await pc._client.ConnectAsync(pc.Peer.Ip, pc.Peer.Port);
+        await pc.HandShake();
+        pc._listenerTask = Task.Run(pc.ListenOnMessages);
+        pc._controlTask = Task.Run(pc.Control);
+        return pc;
+    }
+
+    private async Task ListenOnMessages()
     {
         var stream = _client.GetStream();
         while (true)
@@ -70,23 +90,21 @@ public class PeerConnection
         }
     }
 
-    public async Task SendMessages(List<IPeerMessage> messages)
+    private async Task SendMessages(List<IPeerMessage> messages)
     {
         _queuedMsgs.AddRange(messages);
-        if (_amChoked)
-            return;
         var stream = _client.GetStream();
         var buf = new List<Byte>();
+        var unsentMsgs = new List<IPeerMessage>();
         foreach (var message in _queuedMsgs)
         {
-            buf.AddRange(message.ToBytes());
             switch (message)
             {
                 case Interested i:
-                    _isInterested = true;
+                    _amInterested = true;
                     break;
                 case NotInterested ni:
-                    _isInterested = false;
+                    _amInterested = false;
                     break;
                 case Choke c:
                     _isChoked = true;
@@ -94,50 +112,56 @@ public class PeerConnection
                 case Unchoke uc:
                     _isChoked = false;
                     break;
+                case Request rc:
+                    if (_amChoked)
+                    {
+                        unsentMsgs.Add(message);
+                        continue;
+                    }
+                    Console.WriteLine($"send request {rc.Idx}");
+                    break;
             }
+            buf.AddRange(message.ToBytes());
         }
         await stream.WriteAsync(buf.ToArray());
+        _queuedMsgs.Clear();
+        _queuedMsgs.AddRange(unsentMsgs);
     }
 
-    async Task DownloadPieces()
+    private async Task Control()
     {
         while (!_ctrlChannel.Reader.Completion.IsCompleted)
         {
-            if (_piecesToDownload.Count == 0)
+            var msg = await PeerChannel.Reader.ReadAsync();
+            switch (msg)
             {
-                Console.WriteLine("request pieces");
-                await _ctrlChannel.Writer.WriteAsync(new RequestPieces(this));
-                ICtrlMsg msg;
-                while (true)
-                {
-                    msg = await PeerChannel.Reader.ReadAsync();
-                    if (msg is SupplyPieces)
-                        break;
-                    // add back to the end of channel
-                    await PeerChannel.Writer.WriteAsync(msg);
+                case SupplyPieces sp: {
+                    foreach (var pieceIdx in sp.Pieces)
+                    {
+                        await RequestPiece(pieceIdx);
+                    }
+                    break;
                 }
-                Console.WriteLine("got pieces");
-                _piecesToDownload.AddRange((msg as SupplyPieces)!.Pieces);
-                Console.WriteLine(_piecesToDownload.Count);
-            }
-            foreach (var pieceIdx in _piecesToDownload)
-            {
-                Console.WriteLine($"Downloading {pieceIdx}");
+                case HavePiece hp: {
+                    await SendMessages([new Have((UInt32)hp.Idx)]);
+                    break;
+                }
             }
         }
     }
 
-    public static async Task<PeerConnection> CreateAsync(
-        Peer peer, Torrent torrent, byte[] peerId,
-        Channel<ICtrlMsg> ctrlChannel,
-        Channel<ICtrlMsg> peerChannel
-    )
+    private async Task RequestPiece(int piece)
     {
-        var pc = new PeerConnection(peer, torrent, peerId, ctrlChannel, peerChannel);
-        await pc._client.ConnectAsync(pc.Peer.Ip, pc.Peer.Port);
-        await pc.HandShake();
-        pc._listenerTask = Task.Run(pc.ListenOnMessages);
-        return pc;
+        var size = TorrentUtils.GetPieceLength(Torrent, piece);
+        var msgs = new List<IPeerMessage>();
+        for (int off = 0; off < size; off += CHUNK_SIZE)
+        {
+            // Account for the last chunk in a file being possibly smaller.
+            var chunkLen = Math.Min(size - off, CHUNK_SIZE);
+            var msg = new Request((UInt32)piece, (UInt32)off, (UInt32)chunkLen);
+            msgs.Add(msg);
+        }
+        await SendMessages(msgs);
     }
 
     private async Task HandleMessage(IPeerMessage msg)
@@ -153,6 +177,8 @@ public class PeerConnection
             }
             case Unchoke uc: {
                 _amChoked = false;
+                // Attempt to clear queued request messages.
+                await SendMessages(new());
                 break;
             }
             case Interested i: {
@@ -171,7 +197,6 @@ public class PeerConnection
             case Bitfield b: {
                 b.Data.Length = Torrent.NumberOfPieces;
                 PeerHas = b.Data;
-                _downloaderTask = Task.Run(DownloadPieces);
                 break;
             }
             case Request r: {
@@ -179,6 +204,7 @@ public class PeerConnection
                 break;
             }
             case Piece p: {
+                Console.WriteLine($"Got chunk {p.Chunk.Idx}");
                 await _ctrlChannel.Writer.WriteAsync(new DownloadedChunk(Peer, p.Chunk));
                 break;
             }
@@ -220,12 +246,14 @@ public class PeerConnection
             throw new HandShakeException("Info hash recieved from peer differs from the one sent.");
         if (Peer.PeerId is not null && !handshake.Slice(1 + len + 8 + 20, 20).ToArray().SequenceEqual(Peer.PeerId))
             throw new HandShakeException("Peer's id mismatched.");
+
+        // TODO: send bitfield and interested if the whole torrent is not downloaded yet
     }
 
     ~PeerConnection()
     {
         _client.Dispose();
         _listenerTask?.Dispose();
-        _downloaderTask?.Dispose();
+        _controlTask?.Dispose();
     }
 }

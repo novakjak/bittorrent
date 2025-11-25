@@ -63,50 +63,47 @@ public class TorrentTask
                     if (connections.Select(pc => pc.Peer).Contains(np.Peer))
                         break;
                     connections.Add(np.PeerConnection);
+
+                    var pieces = RandomNotDownloadedPieces(np.PeerConnection.PeerHas);
+                    if (pieces.Length > 0)
+                    {
+                        var msg = new SupplyPieces(np.Peer, pieces);
+                        await np.PeerConnection.PeerChannel.Writer.WriteAsync(msg);
+                    }
                     Console.WriteLine($"Added Connection: {np.Peer}");
                     break;
                 }
-                case RequestPieces rp: {
-                    Console.WriteLine("reques gotten");
-                    // Enumerate all pieces that have yet not been fully downloaded.
-                    var notDownloaded = new BitArray(_downloadedPieces);
-                    notDownloaded.Not();
-
-                    // Enumerate all pieces that are not being downloaded right now.
-                    var notDownloading = new BitArray(_downloadingPieces);
-                    notDownloading.Not();
-
-                    // Create a result of what is available to be downloaded.
-                    var availableToDownload = notDownloaded.And(notDownloading);
-
-                    // Limit to only those that the peer can supply.
-                    availableToDownload.And(rp.PeerConnection.PeerHas);
-
-                    var pieces = availableToDownload.OfType<bool>()
-                        .Index()
-                        .Where(p => p.Item2)
-                        .Select(p => p.Item1).Take(20).ToArray();
-
-                    if (pieces.Length == 0)
-                    {
-                        Console.WriteLine("no pieces to send");
-                        break;
-                    }
-
-                    foreach (var piece in pieces)
-                    {
-                        _downloadingPieces[piece] = true;
-                    }
-
-                    var rng = new Random();
-                    rng.Shuffle(pieces);
-                    var conn = connections.First(c => c.Peer == rp.Peer);
-                    var msg = new SupplyPieces(rp.Peer, pieces);
-                    await conn.PeerChannel.Writer.WriteAsync(msg);
+                case DownloadedChunk dc: {
+                    // TODO: implement
                     break;
                 }
             }
         }
+    }
+
+    private int[] RandomNotDownloadedPieces(BitArray peerHas)
+    {
+        // Enumerate all pieces that have yet not been fully downloaded.
+        var notDownloaded = new BitArray(_downloadedPieces);
+        notDownloaded.Not();
+
+        // Enumerate all pieces that are not being downloaded right now.
+        var notDownloading = new BitArray(_downloadingPieces);
+        notDownloading.Not();
+
+        // Create a result of what is available to be downloaded.
+        var availableToDownload = notDownloaded.And(notDownloading);
+
+        // Limit to only those that the peer can supply.
+        availableToDownload.And(peerHas);
+
+        var pieces = availableToDownload.OfType<bool>()
+            .Index()
+            .Where(p => p.Item2)
+            .Select(p => p.Item1).Take(20).ToArray();
+        var rng = new Random();
+        rng.Shuffle(pieces);
+        return pieces;
     }
 
     private async Task Announce()
@@ -152,8 +149,8 @@ public class TorrentTask
             var peerChannel = Channel.CreateUnbounded<ICtrlMsg>();
             _ = Task.Run(async () => {
                 var pc = await PeerConnection
-                    .CreateAsync(peer, Torrent,
-                                 peerId, _mainCtrlChannel, peerChannel);
+                    .CreateAsync(peer, Torrent, peerId,
+                        _mainCtrlChannel, peerChannel, _downloadedPieces);
                 await _mainCtrlChannel.Writer.WriteAsync(new NewPeer(pc));
             });
         }

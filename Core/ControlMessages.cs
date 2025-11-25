@@ -18,16 +18,6 @@ public class NewPeer : ICtrlMsg
 		PeerConnection = pc;
 	}
 }
-public class RequestPieces : ICtrlMsg
-{
-	public Peer Peer { get; }
-	public PeerConnection PeerConnection { get; }
-	public RequestPieces(PeerConnection conn)
-	{
-		PeerConnection = conn;
-		Peer = PeerConnection.Peer;
-	}
-}
 public class SupplyPieces : ICtrlMsg
 {
 	public Peer Peer { get; }
