@@ -29,8 +29,8 @@ public class RequestPieces : ICtrlMsg
 public class SupplyPieces : ICtrlMsg
 {
 	public Peer Peer { get; }
-	public List<int> Pieces { get; }
-	public SupplyPieces(Peer peer, List<int> pieces)
+	public IEnumerable<int> Pieces { get; }
+	public SupplyPieces(Peer peer, IEnumerable<int> pieces)
 	{
 		Peer = peer;
 		Pieces = pieces;

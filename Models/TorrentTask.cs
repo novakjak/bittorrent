@@ -28,6 +28,7 @@ public class TorrentTask
     private List<Peer> _peers = new();
     private Channel<ICtrlMsg> _mainCtrlChannel;
     private BitArray _downloadedPieces;
+    private BitArray _downloadingPieces;
 
     private static readonly HttpClient client = new();
 
@@ -40,6 +41,7 @@ public class TorrentTask
     {
         Torrent = torrent;
         _downloadedPieces = new BitArray(Torrent.NumberOfPieces);
+        _downloadingPieces = new BitArray(Torrent.NumberOfPieces);
         _mainCtrlChannel = Channel.CreateUnbounded<ICtrlMsg>();
     }
 
@@ -64,25 +66,40 @@ public class TorrentTask
                 }
                 case RequestPieces rp: {
                     Console.WriteLine("reques gotten");
-                    var canDownload = rp.PeerConnection.PeerHas;
-                    var leftToDownload = new BitArray(_downloadedPieces);
-                    leftToDownload.Not();
-                    var needToDownload = leftToDownload.And(canDownload);
-                    var pieces = needToDownload.OfType<bool>()
+                    // Enumerate all pieces that have yet not been fully downloaded.
+                    var notDownloaded = new BitArray(_downloadedPieces);
+                    notDownloaded.Not();
+
+                    // Enumerate all pieces that are not being downloaded right now.
+                    var notDownloading = new BitArray(_downloadingPieces);
+                    notDownloading.Not();
+
+                    // Create a result of what is available to be downloaded.
+                    var availableToDownload = notDownloaded.And(notDownloading);
+
+                    // Limit to only those that the peer can supply.
+                    availableToDownload.And(rp.PeerConnection.PeerHas);
+
+                    var pieces = availableToDownload.OfType<bool>()
                         .Index()
                         .Where(p => p.Item2)
-                        .Select(p => p.Item1).ToArray();
+                        .Select(p => p.Item1).Take(20).ToArray();
+
                     if (pieces.Length == 0)
                     {
                         Console.WriteLine("no pieces to send");
                         break;
                     }
 
+                    foreach (var piece in pieces)
+                    {
+                        _downloadingPieces[piece] = true;
+                    }
+
                     var rng = new Random();
                     rng.Shuffle(pieces);
                     var conn = connections.First(c => c.Peer == rp.Peer);
-                    var msg = new SupplyPieces(rp.Peer, pieces.Take(20).ToList());
-                    Console.WriteLine("reques setnt");
+                    var msg = new SupplyPieces(rp.Peer, pieces);
                     await conn.PeerChannel.Writer.WriteAsync(msg);
                     break;
                 }
