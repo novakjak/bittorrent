@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using BencodeNET.Torrents;
@@ -29,6 +30,7 @@ public class PeerConnection
     private bool _amInterested = false;
     private bool _isInterested = false;
     private List<IPeerMessage> _queuedMsgs = new();
+    private Lock _queueLock = new();
     private List<int> _piecesToDownload = new();
     private Task? _listenerTask;
     private Task? _controlTask;
@@ -92,40 +94,42 @@ public class PeerConnection
 
     private async Task SendMessages(List<IPeerMessage> messages)
     {
-        _queuedMsgs.AddRange(messages);
         var stream = _client.GetStream();
         var buf = new List<Byte>();
-        var unsentMsgs = new List<IPeerMessage>();
-        foreach (var message in _queuedMsgs)
+        lock (_queueLock)
         {
-            switch (message)
+            _queuedMsgs.AddRange(messages);
+            var unsentMsgs = new List<IPeerMessage>();
+            foreach (var message in _queuedMsgs)
             {
-                case Interested i:
-                    _amInterested = true;
-                    break;
-                case NotInterested ni:
-                    _amInterested = false;
-                    break;
-                case Choke c:
-                    _isChoked = true;
-                    break;
-                case Unchoke uc:
-                    _isChoked = false;
-                    break;
-                case Request rc:
-                    if (_amChoked)
-                    {
-                        unsentMsgs.Add(message);
-                        continue;
-                    }
-                    Console.WriteLine($"send request {rc.Idx}");
-                    break;
+                switch (message)
+                {
+                    case Interested i:
+                        _amInterested = true;
+                        break;
+                    case NotInterested ni:
+                        _amInterested = false;
+                        break;
+                    case Choke c:
+                        _isChoked = true;
+                        break;
+                    case Unchoke uc:
+                        _isChoked = false;
+                        break;
+                    case Request rc:
+                        if (_amChoked)
+                        {
+                            unsentMsgs.Add(message);
+                            continue;
+                        }
+                        break;
+                }
+                buf.AddRange(message.ToBytes());
             }
-            buf.AddRange(message.ToBytes());
+            _queuedMsgs.Clear();
+            _queuedMsgs.AddRange(unsentMsgs);
         }
         await stream.WriteAsync(buf.ToArray());
-        _queuedMsgs.Clear();
-        _queuedMsgs.AddRange(unsentMsgs);
     }
 
     private async Task Control()
