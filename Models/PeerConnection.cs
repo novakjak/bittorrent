@@ -34,6 +34,7 @@ public class PeerConnection
     private List<int> _piecesToDownload = new();
     private Task? _listenerTask;
     private Task? _controlTask;
+    private CancellationTokenSource _cancellation = new();
 
     private readonly Channel<ICtrlMsg> _ctrlChannel;
     private readonly TcpClient _client;
@@ -68,11 +69,16 @@ public class PeerConnection
     )
     {
         var pc = new PeerConnection(peer, torrent, peerId, ctrlChannel, peerChannel, have);
-        await pc._client.ConnectAsync(pc.Peer.Ip, pc.Peer.Port);
+        await pc._client.ConnectAsync(pc.Peer.Ip, pc.Peer.Port, pc._cancellation.Token);
         await pc.HandShake();
-        pc._listenerTask = Task.Run(pc.ListenOnMessages);
-        pc._controlTask = Task.Run(pc.Control);
+        pc._listenerTask = Task.Run(pc.ListenOnMessages, pc._cancellation.Token);
+        pc._controlTask = Task.Run(pc.Control, pc._cancellation.Token);
         return pc;
+    }
+
+    public void Stop()
+    {
+        _cancellation.Cancel();
     }
 
     private async Task ListenOnMessages()
@@ -81,11 +87,11 @@ public class PeerConnection
         while (true)
         {
             var lenBuf = new byte[4];
-            await stream.ReadExactlyAsync(lenBuf, 0, 4);
+            await stream.ReadExactlyAsync(lenBuf, 0, 4, _cancellation.Token);
             var len = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(lenBuf));
             var msgBuf = new byte[4 + len];
             lenBuf.CopyTo(msgBuf, 0);
-            await stream.ReadExactlyAsync(msgBuf, 4, len);
+            await stream.ReadExactlyAsync(msgBuf, 4, len, _cancellation.Token);
             var msg = PeerMessageParser.Parse(msgBuf);
             if (msg is null) continue;
             await HandleMessage(msg);
@@ -129,14 +135,14 @@ public class PeerConnection
             _queuedMsgs.Clear();
             _queuedMsgs.AddRange(unsentMsgs);
         }
-        await stream.WriteAsync(buf.ToArray());
+        await stream.WriteAsync(buf.ToArray(), _cancellation.Token);
     }
 
     private async Task Control()
     {
         while (!_ctrlChannel.Reader.Completion.IsCompleted)
         {
-            var msg = await PeerChannel.Reader.ReadAsync();
+            var msg = await PeerChannel.Reader.ReadAsync(_cancellation.Token);
             switch (msg)
             {
                 case SupplyPieces sp: {
@@ -195,7 +201,7 @@ public class PeerConnection
             }
             case Have h: {
                 PeerHas[(int)h.Piece] = true;
-                await _ctrlChannel.Writer.WriteAsync(new HavePiece(Peer, (int)h.Piece));
+                await _ctrlChannel.Writer.WriteAsync(new HavePiece(Peer, (int)h.Piece), _cancellation.Token);
                 break;
             }
             case Bitfield b: {
@@ -208,7 +214,7 @@ public class PeerConnection
                 break;
             }
             case Piece p: {
-                await _ctrlChannel.Writer.WriteAsync(new DownloadedChunk(Peer, p.Chunk));
+                await _ctrlChannel.Writer.WriteAsync(new DownloadedChunk(Peer, p.Chunk), _cancellation.Token);
                 break;
             }
             case Cancel cancel: {
@@ -232,12 +238,12 @@ public class PeerConnection
         buffer.AddRange(Torrent.OriginalInfoHashBytes);
         buffer.AddRange(PeerId);
 
-        await stream.WriteAsync(buffer.ToArray());
-        await stream.FlushAsync();
+        await stream.WriteAsync(buffer.ToArray(), _cancellation.Token);
+        await stream.FlushAsync(_cancellation.Token);
 
         var messageBuf = new Byte[49 + len];
         var handshake = new Memory<byte>(messageBuf);
-        await stream.ReadExactlyAsync(messageBuf, 0, messageBuf.Length);
+        await stream.ReadExactlyAsync(messageBuf, 0, messageBuf.Length, _cancellation.Token);
 
         if (handshake.Span[0] != len)
             throw new HandShakeException("Recieved invalid protocol name length from peer.");
@@ -255,7 +261,10 @@ public class PeerConnection
 
     ~PeerConnection()
     {
+        Console.WriteLine($"Disposed peer: {Peer}");
         _client.Dispose();
+        PeerChannel.Writer.Complete();
+        _cancellation.Cancel();
         _listenerTask?.Dispose();
         _controlTask?.Dispose();
     }
