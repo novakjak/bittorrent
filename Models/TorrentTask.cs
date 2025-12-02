@@ -131,7 +131,7 @@ public class TorrentTask
     private async Task SupplyPiecesToPeer(PeerConnection pc, int count)
     {
         var pieces = RandomNotDownloadedPieces(pc.PeerHas, count);
-        if (pieces.Length > 0)
+        if (pieces.Count() > 0)
         {
             foreach (var piece in pieces)
             {
@@ -142,7 +142,7 @@ public class TorrentTask
         }
     }
 
-    private int[] RandomNotDownloadedPieces(BitArray peerHas, int count)
+    private IEnumerable<int> RandomNotDownloadedPieces(BitArray peerHas, int count)
     {
         var availableToDownload = new BitArray(peerHas);
 
@@ -160,10 +160,10 @@ public class TorrentTask
         var pieces = availableToDownload.OfType<bool>()
             .Index()
             .Where(p => p.Item2)
-            .Select(p => p.Item1).Take(count).ToArray();
+            .Select(p => p.Item1).ToArray();
         var rng = new Random();
         rng.Shuffle(pieces);
-        return pieces;
+        return pieces.Take(20);
     }
 
     private async Task Announce()
