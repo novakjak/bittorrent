@@ -87,13 +87,18 @@ public class TorrentTask
                     Downloaded += dc.Chunk.Data.Length;
                     if (chunks.Count() == chunksInAPiece)
                     {
+                        _downloadingPieces.Remove((int)dc.Chunk.Idx);
                         var pieceBuf = new byte[pieceLen];
                         foreach (var chunk in chunks)
                         {
                             chunk.Data.CopyTo(pieceBuf, chunk.Begin);
                         }
                         var hash = System.Security.Cryptography.SHA1.HashData(pieceBuf);
-                        // TODO: confirm matching hashes
+                        var pieceHash = new ArraySegment<byte>(Torrent.Pieces, (int)dc.Chunk.Idx * 20, 20);
+                        if (!hash.SequenceEqual(pieceHash))
+                        {
+                            break;
+                        }
 
                         var piece = new Data.Piece((int)dc.Chunk.Idx, pieceBuf);
                         try {
@@ -107,6 +112,8 @@ public class TorrentTask
                         DownloadedValid += pieceBuf.Length;
                         var args = (piece.Idx, (double)DownloadedValid / (double)Torrent.TotalSize);
                         DownloadedPiece?.Invoke(this, args);
+                        _downloadedPieces[(int)dc.Chunk.Idx] = true;
+
                         var peer = connections.First(c => c.Peer == dc.Peer);
                         await SupplyPiecesToPeer(peer, 1);
                     }
