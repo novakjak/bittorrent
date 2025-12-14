@@ -29,6 +29,7 @@ public class PeerConnection
     private bool _isChoked = true;
     private bool _amInterested = false;
     private bool _isInterested = false;
+    private TcpClient _client = new();
     private List<IPeerMessage> _queuedMsgs = new();
     private Lock _queueLock = new();
     private List<int> _piecesToDownload = new();
@@ -37,7 +38,6 @@ public class PeerConnection
     private CancellationTokenSource _cancellation = new();
 
     private readonly Channel<ICtrlMsg> _ctrlChannel;
-    private readonly TcpClient _client;
 
     private PeerConnection(
         Peer peer, Torrent torrent, byte[] peerId,
@@ -58,7 +58,6 @@ public class PeerConnection
         PeerHas = new BitArray(Torrent.NumberOfPieces);
         Have = have;
         _ctrlChannel = ctrlChannel;
-        _client = new TcpClient();
     }
 
     public static async Task<PeerConnection> CreateAsync(
@@ -69,16 +68,39 @@ public class PeerConnection
     )
     {
         var pc = new PeerConnection(peer, torrent, peerId, ctrlChannel, peerChannel, have);
-        await pc._client.ConnectAsync(pc.Peer.Ip, pc.Peer.Port, pc._cancellation.Token);
-        await pc.HandShake();
-        pc._listenerTask = Task.Run(pc.ListenOnMessages, pc._cancellation.Token);
-        pc._controlTask = Task.Run(pc.Control, pc._cancellation.Token);
+        await pc.Start();
         return pc;
     }
 
-    public void Stop()
+    public async Task Start()
+    {
+        _client.Close();
+        _client = new();
+        await _client.ConnectAsync(Peer.Ip, Peer.Port, _cancellation.Token);
+        await HandShake();
+        _listenerTask = Task.Run(ListenOnMessages, _cancellation.Token).ContinueWith(StopOnException);
+        _controlTask = Task.Run(Control, _cancellation.Token).ContinueWith(StopOnException);
+        await _ctrlChannel.Writer.WriteAsync(new NewPeer(this), _cancellation.Token);
+    }
+
+    public async Task Stop()
     {
         _cancellation.Cancel();
+        _listenerTask = null;
+        _controlTask = null;
+        _client.Close();
+        await _ctrlChannel.Writer.WriteAsync(new CloseConnection(Peer, _piecesToDownload), _cancellation.Token);
+
+    }
+
+    private async Task StopOnException(Task task)
+    {
+        if (task.IsFaulted)
+        {
+            await Stop();
+            return;
+        }
+        await task;
     }
 
     private async Task ListenOnMessages()
@@ -262,7 +284,7 @@ public class PeerConnection
     ~PeerConnection()
     {
         Console.WriteLine($"Disposed peer: {Peer}");
-        _client.Dispose();
+        _client.Close();
         PeerChannel.Writer.Complete();
         _cancellation.Cancel();
         _listenerTask?.Dispose();
