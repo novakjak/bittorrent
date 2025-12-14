@@ -119,6 +119,15 @@ public class TorrentTask
                     }
                     break;
                 }
+                case CloseConnection cc: {
+                    foreach (var idx in cc.WasDownloading)
+                    {
+                        _downloadingPieces.Remove(idx);
+                    }
+                    connections.RemoveAll(conn => conn.Peer == cc.Peer);
+                    Console.WriteLine($"closed connection with {cc.Peer}");
+                    break;
+                }
             }
         }
         }
@@ -207,12 +216,7 @@ public class TorrentTask
         foreach (var peer in ParsePeers(body["peers"]))
         {
             var peerChannel = Channel.CreateUnbounded<ICtrlMsg>();
-            _ = Task.Run(async () => {
-                var pc = await PeerConnection
-                    .CreateAsync(peer, Torrent, peerId,
-                        _mainCtrlChannel, peerChannel, _downloadedPieces);
-                await _mainCtrlChannel.Writer.WriteAsync(new NewPeer(pc), _cancallation.Token);
-            });
+            _ = Task.Run(async () => await PeerConnection.CreateAsync(peer, Torrent, peerId, _mainCtrlChannel, peerChannel, _downloadedPieces));
         }
     }
 
