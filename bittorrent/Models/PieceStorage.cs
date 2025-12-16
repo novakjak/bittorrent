@@ -5,9 +5,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using BencodeNET.Torrents;
 
-using bittorrent.Core.Data;
+using Data=bittorrent.Core.Data;
 
-namespace bittorrent.Core;
+namespace bittorrent;
 
 public sealed class PieceStorage
 {

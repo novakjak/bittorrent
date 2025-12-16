@@ -9,9 +9,13 @@ public static class PeerMessageParser
 {
 	public static IPeerMessage? Parse(byte[] message)
 	{
+		if (message.Length < 4)
+			return null;
         var len = Util.FromNetworkOrderBytes(message, 0);
 		if (len == 0)
 			return new KeepAlive();
+		if (message.Length != len + 4)
+			return null;
 		var type = message[4];
 		switch (type)
 		{
@@ -32,7 +36,8 @@ public static class PeerMessageParser
 				return new NotInterested();
 			}
 			case 4: {
-				if (len != 5) return null;
+				if (len != 5)
+					return null;
 		        var idx = Util.FromNetworkOrderBytes(message, 5);
 				return new Have(idx);
 			}
@@ -177,7 +182,7 @@ public class Cancel(UInt32 idx, UInt32 begin, UInt32 length) : IPeerMessage
 	public byte[] ToBytes()
 	{
 		var buf = new byte[17];
-		byte[] header = [0, 0, 0, 13, 6];
+		byte[] header = [0, 0, 0, 13, 8];
 		header.CopyTo(buf, 0);
 		Util.GetNetworkOrderBytes(Idx).CopyTo(buf, 5);
 		Util.GetNetworkOrderBytes(Begin).CopyTo(buf, 9);

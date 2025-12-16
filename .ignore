@@ -2,3 +2,4 @@ Assets/
 bin/
 obj/
 *.torrent
+*.sln
