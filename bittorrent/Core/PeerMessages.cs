@@ -1,5 +1,7 @@
 using System;
+using System.Text;
 using System.Collections;
+using System.Collections.Generic;
 
 using bittorrent.Core.Data;
 
@@ -188,5 +190,64 @@ public class Cancel(UInt32 idx, UInt32 begin, UInt32 length) : IPeerMessage
 		Util.GetNetworkOrderBytes(Begin).CopyTo(buf, 9);
 		Util.GetNetworkOrderBytes(Length).CopyTo(buf, 13);
 		return buf;
+	}
+}
+
+// This class does *not* implement IPeerMessage because it is not supposed
+// to be sent during already established communication.
+public class Handshake
+{
+	public static string DefaultProtocol = "BitTorrent protocol";
+
+	public string ProtocolName { get; set; }
+	public byte[] ProtocolExtensions { get; set; }
+	public byte[] InfoHash { get; set; }
+	public byte[] PeerId { get; set; }
+
+	public Handshake(byte[] infoHash, byte[] peerId)
+	{
+		if (infoHash.Length != 20)
+			throw new ArgumentException("Info hash is not 20 bytes long.");
+		if (peerId.Length != 20)
+			throw new ArgumentException("Peer ID is not 20 bytes long.");
+		InfoHash = infoHash;
+		PeerId = peerId;
+		ProtocolExtensions = new byte[8];
+		ProtocolName = DefaultProtocol;
+	}
+	public Handshake(byte[] infoHash, byte[] peerId, byte[] extensions) : this(infoHash, peerId)
+	{
+		if (extensions.Length != 8)
+			throw new ArgumentException("Extensions are not 8 bytes long");
+		ProtocolExtensions = extensions;
+	}
+
+	public byte[] ToBytes()
+	{
+        List<byte> buffer = new();
+        buffer.Add((byte)ProtocolName.Length);
+        buffer.AddRange(Encoding.ASCII.GetBytes(ProtocolName));
+        buffer.AddRange(ProtocolExtensions);
+        buffer.AddRange(InfoHash);
+        buffer.AddRange(PeerId);
+		return buffer.ToArray();
+	}
+
+	public static Handshake Parse(Memory<byte> handshake)
+	{
+		int pLen = DefaultProtocol.Length;
+		if (handshake.Length != 49 + pLen)
+			throw new HandShakeException("Handshake length is invalid");
+
+        if (handshake.Span[0] != pLen)
+            throw new HandShakeException("Recieved invalid protocol name length from peer.");
+        var protocolRecieved = Encoding.ASCII.GetString(handshake.Slice(1, pLen).ToArray());
+        if (protocolRecieved != DefaultProtocol)
+            throw new HandShakeException($"Recieved invalid protocol name from peer: {protocolRecieved}");
+        // Skip checking reserved bytes (20..27)
+        var extensions = handshake.Slice(1 + pLen, 8);
+        var infoHash = handshake.Slice(1 + pLen + 8, 20).ToArray();
+        var peerId = handshake.Slice(1 + pLen + 8 + 20, 20).ToArray();
+		return new Handshake(infoHash, peerId);
 	}
 }

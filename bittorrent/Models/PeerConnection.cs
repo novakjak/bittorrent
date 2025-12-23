@@ -249,33 +249,18 @@ public class PeerConnection
     private async Task HandShake()
     {
         var stream = _client.GetStream();
-        string protocolName = "BitTorrent protocol";
-        var len = protocolName.Length;
-        byte[] reserved = new byte[8];
-
-        List<byte> buffer = new();
-        buffer.Add((byte)protocolName.Length);
-        buffer.AddRange(Encoding.ASCII.GetBytes(protocolName));
-        buffer.AddRange(reserved);
-        buffer.AddRange(Torrent.OriginalInfoHashBytes);
-        buffer.AddRange(PeerId);
-
-        await stream.WriteAsync(buffer.ToArray(), _cancellation.Token);
+        var handshake = new Handshake(Torrent.OriginalInfoHashBytes, PeerId);
+        await stream.WriteAsync(handshake.ToBytes(), _cancellation.Token);
         await stream.FlushAsync(_cancellation.Token);
 
-        var messageBuf = new Byte[49 + len];
-        var handshake = new Memory<byte>(messageBuf);
+        var messageBuf = new Byte[49 + Handshake.DefaultProtocol.Length];
+        var messageMem = new Memory<byte>(messageBuf);
         await stream.ReadExactlyAsync(messageBuf, 0, messageBuf.Length, _cancellation.Token);
+        var recieved = Handshake.Parse(messageMem);
 
-        if (handshake.Span[0] != len)
-            throw new HandShakeException("Recieved invalid protocol name length from peer.");
-        var protocolRecieved = Encoding.ASCII.GetString(handshake.Slice(1, len).ToArray());
-        if (protocolRecieved != protocolName)
-            throw new HandShakeException($"Recieved invalid protocol name from peer: {protocolRecieved}");
-        // Skip checking reserved bytes (20..27)
-        if (!handshake.Slice(1 + len + 8, 20).ToArray().SequenceEqual(Torrent.OriginalInfoHashBytes))
+        if (!recieved.InfoHash.SequenceEqual(Torrent.OriginalInfoHashBytes))
             throw new HandShakeException("Info hash recieved from peer differs from the one sent.");
-        if (Peer.PeerId is not null && !handshake.Slice(1 + len + 8 + 20, 20).ToArray().SequenceEqual(Peer.PeerId))
+        if (Peer.PeerId is not null && !recieved.PeerId.SequenceEqual(Peer.PeerId))
             throw new HandShakeException("Peer's id mismatched.");
 
         // TODO: send bitfield and interested if the whole torrent is not downloaded yet
