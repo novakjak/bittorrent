@@ -28,17 +28,17 @@ public class TorrentTask
     public int Uploaded { get; private set; } = 0;
     public int Downloaded { get; private set; } = 0;
     public int DownloadedValid { get; private set; } = 0;
+    public string PeerId { get; private set; } = Util.GenerateRandomString(20);
 
     public event EventHandler<(int pieceIdx, double completion)>? DownloadedPiece;
 
     private Task? _thread;
-    private string _peerId = Util.GenerateRandomString(20);
     private List<Peer> _peers = new();
-    private Channel<ICtrlMsg> _mainCtrlChannel;
+    private Channel<IPeerCtrlMsg> _mainCtrlChannel;
     private BitArray _downloadedPieces;
     private Dictionary<int, List<Data.Chunk>> _downloadingPieces = new();
     private PieceStorage _storage;
-    private CancellationTokenSource _cancallation = new();
+    private CancellationTokenSource _cancellation = new();
 
     private static readonly HttpClient client = new();
 
@@ -46,23 +46,24 @@ public class TorrentTask
     {
         Torrent = torrent;
         _downloadedPieces = new BitArray(Torrent.NumberOfPieces);
-        _mainCtrlChannel = Channel.CreateUnbounded<ICtrlMsg>();
+        _mainCtrlChannel = Channel.CreateUnbounded<IPeerCtrlMsg>();
         _storage = new PieceStorage(torrent);
     }
 
     public void Start()
     {
-        _thread ??= Task.Run(this.ManagePeers, _cancallation.Token);
+        _thread ??= Task.Run(this.ManagePeers, _cancellation.Token);
     }
 
-    public void AddPeer(TcpClient conn, Peer peer)
+    public void AddPeer(INetworkClient conn, Peer peer)
     {
         Task.Run(async () => {
-            var peerChannel = Channel.CreateUnbounded<ICtrlMsg>();
-            var peerId = Encoding.ASCII.GetBytes(_peerId);
+            var peerChannel = Channel.CreateUnbounded<ITaskCtrlMsg>();
+            var peerId = Encoding.ASCII.GetBytes(PeerId);
+            var peerTokenSource = new CancellationTokenSource();
             await PeerConnection.CreateAndFinishHandshakeAsync(
                 conn, peer, Torrent, peerId, _mainCtrlChannel,
-                peerChannel, _downloadedPieces);
+                peerChannel, _downloadedPieces, peerTokenSource);
         });
     }
 
@@ -75,17 +76,22 @@ public class TorrentTask
         {
         // Main control loop
         var rx = _mainCtrlChannel.Reader;
-        while (await rx.WaitToReadAsync(_cancallation.Token))
+        while (await rx.WaitToReadAsync(_cancellation.Token))
         {
-            var message = await rx.ReadAsync(_cancallation.Token);
+            var message = await rx.ReadAsync(_cancellation.Token);
             switch (message)
             {
                 case NewPeer np: {
                     if (connections.Select(pc => pc.Peer).Contains(np.Peer))
                         break;
                     connections.Add(np.PeerConnection);
-                    await SupplyPiecesToPeer(np.PeerConnection, 20);
+                    await SupplyPiecesToPeer(np.PeerConnection, PeerConnection.MAX_DOWNLOADING_PIECES);
                     Console.WriteLine($"Added Connection: {np.Peer}");
+                    break;
+                }
+                case RequestPieces rp: {
+                    var conn = connections.First(c => c.Peer == rp.Peer);
+                    await SupplyPiecesToPeer(conn, rp.Count);
                     break;
                 }
                 case DownloadedChunk dc: {
@@ -159,8 +165,8 @@ public class TorrentTask
             {
                 _downloadingPieces.Add(piece, new List<Data.Chunk>());
             }
-            var msg = new SupplyPieces(pc.Peer, pieces);
-            await pc.PeerChannel.Writer.WriteAsync(msg, _cancallation.Token);
+            var msg = new SupplyPieces(pieces);
+            await pc.PeerChannel.Writer.WriteAsync(msg, _cancellation.Token);
         }
     }
 
@@ -182,7 +188,8 @@ public class TorrentTask
         var pieces = availableToDownload.OfType<bool>()
             .Index()
             .Where(p => p.Item2)
-            .Select(p => p.Item1).ToArray();
+            .Select(p => p.Item1)
+            .ToArray();
         var rng = new Random();
         rng.Shuffle(pieces);
         return pieces.Take(count);
@@ -191,11 +198,11 @@ public class TorrentTask
     private async Task Announce()
     {
         // TODO: use more trackers
-        var peerId = Encoding.ASCII.GetBytes(_peerId);
+        var peerId = Encoding.ASCII.GetBytes(PeerId);
         var tracker = Torrent.Trackers[0][0];
         var urlencoded = System.Web.HttpUtility.UrlEncode(Torrent.OriginalInfoHashBytes);
         var query = $"info_hash={urlencoded}";
-        query += $"&peer_id={_peerId}";
+        query += $"&peer_id={PeerId}";
         query += $"&port=8085";
         query += $"&downloaded={Downloaded}";
         query += $"&uploaded={Uploaded}";
@@ -206,9 +213,9 @@ public class TorrentTask
         BDictionary body;
         try
         {
-            using var response = await client.SendAsync(message, _cancallation.Token);
+            using var response = await client.SendAsync(message, _cancellation.Token);
             var parser = new BencodeParser();
-            body = parser.Parse<BDictionary>(await response.Content.ReadAsStreamAsync(_cancallation.Token));
+            body = parser.Parse<BDictionary>(await response.Content.ReadAsStreamAsync(_cancellation.Token));
             BString failure;
             if ((failure = body.Get<BString>(new BString("failure reason"))) is not null)
             {
@@ -217,7 +224,7 @@ public class TorrentTask
             }
             if (!response.IsSuccessStatusCode)
             {
-                Console.WriteLine("bad :(");
+                Console.WriteLine("Could not get peers from tracker");
                 return;
             }
         }
@@ -228,8 +235,13 @@ public class TorrentTask
         }
         foreach (var peer in ParsePeers(body["peers"]))
         {
-            var peerChannel = Channel.CreateUnbounded<ICtrlMsg>();
-            _ = Task.Run(async () => await PeerConnection.CreateAsync(peer, Torrent, peerId, _mainCtrlChannel, peerChannel, _downloadedPieces));
+            var peerChannel = Channel.CreateUnbounded<ITaskCtrlMsg>();
+            var peerTokenSource = new CancellationTokenSource();
+            _ = Task.Run(async () => await PeerConnection.CreateAsync(
+                peer, Torrent, peerId,
+                _mainCtrlChannel, peerChannel,
+                _downloadedPieces, peerTokenSource
+            ));
         }
     }
 
@@ -277,9 +289,9 @@ public class TorrentTask
     ~TorrentTask()
     {
         Console.WriteLine("Disposed task");
-        _cancallation.Cancel();
+        _cancellation.Cancel();
         client.Dispose();
-        _mainCtrlChannel.Writer.Complete();
+        _mainCtrlChannel.Writer.TryComplete();
         _thread?.Dispose();
     }
 }

@@ -1,0 +1,108 @@
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace test.Models;
+
+public class MockNetworkStream : Stream, IDisposable
+{
+    private MemoryStream _to = new();
+    private long _toRead = 0;
+    private MemoryStream _from = new();
+    private long _fromRead = 0;
+    private bool isClosed = false;
+
+    public override bool CanSeek { get => false; }
+    public override bool CanRead { get => true; }
+    public override bool CanWrite { get => true; }
+    public override bool CanTimeout { get => true; }
+    public override long Position { get => 0; set => _ = value; }
+    public override long Length { get => Math.Max(_to.Length, _from.Length); }
+    public override int ReadTimeout { get; set; } = 10000;
+
+    public MockNetworkStream() {}
+
+    public override int Read(byte[] buffer, int start, int count)
+    {
+        if (isClosed)
+        {
+            throw new ObjectDisposedException(this.ToString());
+        }
+        _from.Seek(_fromRead, SeekOrigin.Begin);
+        var res = _from.Read(buffer, start, count);
+        _fromRead += res;
+        return res;
+    }
+    public override void Write(byte[] buffer, int start, int count) {
+        if (isClosed)
+        {
+            throw new ObjectDisposedException(this.ToString());
+        }
+        _to.Seek(0, SeekOrigin.End);
+        _to.Write(buffer, start, count);  
+    }
+    public override void Flush()
+    {
+        if (isClosed)
+        {
+            throw new ObjectDisposedException(this.ToString());
+        }
+        _to.Flush();
+        _from.Flush();
+    }
+    public override long Seek(long position, SeekOrigin origin) => throw new NotImplementedException();
+
+    public override async Task<int> ReadAsync(byte[] buffer, int start, int count, CancellationToken token)
+    {
+        if (isClosed)
+        {
+            throw new ObjectDisposedException(this.ToString());
+        }
+        _to.Seek(_toRead, SeekOrigin.Begin);
+        if (_to.Position == _to.Length)
+        {
+            await Task.Delay(ReadTimeout, token);
+        }
+        var res = await _to.ReadAsync(buffer, start, count, token);
+        _toRead += res;
+        return res;
+    }
+    public override async Task WriteAsync(byte[] buffer, int start, int count, CancellationToken token)
+    {
+        if (isClosed)
+        {
+            throw new ObjectDisposedException(this.ToString());
+        }
+        _from.Seek(0, SeekOrigin.End);
+        await _from.WriteAsync(buffer, start, count, token);
+    }
+
+    public override async Task FlushAsync(CancellationToken token)
+    {
+        if (isClosed)
+        {
+            throw new ObjectDisposedException(this.ToString());
+        }
+        await _to.FlushAsync(token);
+        await _from.FlushAsync(token);
+    }
+
+    public override void Close()
+    {
+        isClosed = true;
+        base.Close();
+        _to.Close();
+        _from.Close();
+    }
+
+    public new void Dispose()
+    {
+        isClosed = true;
+        base.Dispose();
+        _to.Dispose();
+        _from.Dispose();
+    }
+
+    public override void SetLength(long len) => throw new NotImplementedException();
+}

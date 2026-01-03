@@ -28,6 +28,6 @@ public class Peer : IEquatable<Peer>
 
     public bool Equals(Peer? other)
     {
-        return other is not null && this.Ip == other.Ip && this.Port == other.Port;
+        return other is not null && this.Ip.Equals(other.Ip) && this.Port == other.Port;
     }
 }

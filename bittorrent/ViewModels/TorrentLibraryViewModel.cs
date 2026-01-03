@@ -40,7 +40,7 @@ public partial class TorrentLibraryViewModel : ViewModelBase
         }
     }
 
-    private void HandleNewPeer(object? sender, (TcpClient client, Peer peer, byte[] infoHash) args)
+    private void HandleNewPeer(object? sender, (INetworkClient client, Peer peer, byte[] infoHash) args)
     {
         var taskVM = Torrents.First(t => t.InfoHash == args.infoHash);
         if (taskVM is null)
