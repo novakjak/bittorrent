@@ -9,8 +9,10 @@ public class MockNetworkStream : Stream, IDisposable
 {
     private MemoryStream _to = new();
     private long _toRead = 0;
+    private SemaphoreSlim _toSemaphore = new(0);
     private MemoryStream _from = new();
     private long _fromRead = 0;
+    private SemaphoreSlim _fromSemaphore = new(0);
     private bool isClosed = false;
 
     public override bool CanSeek { get => false; }
@@ -29,9 +31,13 @@ public class MockNetworkStream : Stream, IDisposable
         {
             throw new ObjectDisposedException(this.ToString());
         }
+        if (_fromRead == _from.Length && !_fromSemaphore.Wait(1000))
+            throw new TimeoutException();
         _from.Seek(_fromRead, SeekOrigin.Begin);
         var res = _from.Read(buffer, start, count);
         _fromRead += res;
+        if (_fromRead == _from.Length && _fromSemaphore.CurrentCount > 0)
+            _fromSemaphore.Wait(ReadTimeout);
         return res;
     }
     public override void Write(byte[] buffer, int start, int count) {
@@ -40,7 +46,9 @@ public class MockNetworkStream : Stream, IDisposable
             throw new ObjectDisposedException(this.ToString());
         }
         _to.Seek(0, SeekOrigin.End);
-        _to.Write(buffer, start, count);  
+        _to.Write(buffer, start, count);
+        if (count > 0 && _toSemaphore.CurrentCount == 0)
+            _toSemaphore.Release();
     }
     public override void Flush()
     {
@@ -59,13 +67,14 @@ public class MockNetworkStream : Stream, IDisposable
         {
             throw new ObjectDisposedException(this.ToString());
         }
+        if (_toRead == _to.Length && !await _toSemaphore.WaitAsync(ReadTimeout, token))
+            throw new TimeoutException();
         _to.Seek(_toRead, SeekOrigin.Begin);
-        if (_to.Position == _to.Length)
-        {
-            await Task.Delay(ReadTimeout, token);
-        }
         var res = await _to.ReadAsync(buffer, start, count, token);
         _toRead += res;
+        if (_toRead == _to.Length && _toSemaphore.CurrentCount > 0)
+            await _toSemaphore.WaitAsync(token);
+
         return res;
     }
     public override async Task WriteAsync(byte[] buffer, int start, int count, CancellationToken token)
@@ -76,6 +85,8 @@ public class MockNetworkStream : Stream, IDisposable
         }
         _from.Seek(0, SeekOrigin.End);
         await _from.WriteAsync(buffer, start, count, token);
+        if (_fromSemaphore.CurrentCount == 0)
+            _fromSemaphore.Release();
     }
 
     public override async Task FlushAsync(CancellationToken token)
