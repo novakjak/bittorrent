@@ -67,7 +67,8 @@ public class PeerConnectionTests
 
     [Fact]
     public async Task AcceptHandshake() {
-        await ConnectAsync();
+        var (conn, _) = await ConnectAsync();
+        await conn.Stop();
     }
 
     [Fact]
@@ -93,18 +94,21 @@ public class PeerConnectionTests
         var newpeer = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
         Assert.IsType<NewPeer>(newpeer);
 
+        // once from the bitfield message
         var requestpieces = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
         Assert.IsType<RequestPieces>(requestpieces);
         Assert.Equal(PeerConnection.MAX_DOWNLOADING_PIECES, ((RequestPieces)requestpieces).Count);
         Assert.Equal(peer, requestpieces.Peer);
 
-        var have = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
-        Assert.IsType<HavePiece>(have);
-        Assert.Equal(0, ((HavePiece)have).Idx);
-        Assert.Equal(peer, have.Peer);
+        // second time from the have message
+        requestpieces = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
+        Assert.IsType<RequestPieces>(requestpieces);
+        Assert.Equal(PeerConnection.MAX_DOWNLOADING_PIECES, ((RequestPieces)requestpieces).Count);
+        Assert.Equal(peer, requestpieces.Peer);
+
         var chunk = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
         Assert.IsType<DownloadedChunk>(chunk);
-        Assert.Equal(peer, have.Peer);
+        Assert.Equal(peer, chunk.Peer);
         var chunkMsg = (DownloadedChunk)chunk;
         Assert.Equal(1u, chunkMsg.Chunk.Idx);
         Assert.Equal(2u, chunkMsg.Chunk.Begin);
@@ -112,13 +116,12 @@ public class PeerConnectionTests
 
         Assert.False(conn.AmChoked);
         Assert.True(conn.IsInterested);
+        await conn.Stop();
     }
 
     [Fact]
     public async Task SendMessages()
     {
-        dataStream.Write(new Unchoke().ToBytes());
-        var (conn, handshake) = await ConnectAsync();
         var messages = new List<IPeerMessage>
         {
             new KeepAlive(),
@@ -132,10 +135,10 @@ public class PeerConnectionTests
             new Piece(4, 5, new byte[] { 6, 7, 8, 9 }),
             new Cancel(1, 2, 3),
         };
-        Console.WriteLine("Writing");
+        dataStream.Write(new Unchoke().ToBytes());
+        var (conn, handshake) = await ConnectAsync();
         await conn.SendMessages(messages);
-        Console.WriteLine("Written all messages");
-        var msgs = ReadMessages();
+        var msgs = ReadMessages(10);
         Assert.IsType<KeepAlive>(msgs[0]);
         Assert.IsType<Unchoke>(msgs[1]);
         Assert.IsType<Choke>(msgs[2]);
@@ -146,6 +149,7 @@ public class PeerConnectionTests
         Assert.IsType<Request>(msgs[7]);
         Assert.IsType<Piece>(msgs[8]);
         Assert.IsType<Cancel>(msgs[9]);
+        await conn.Stop();
     }
 
     [Fact]
@@ -158,16 +162,17 @@ public class PeerConnectionTests
         Assert.IsType<NewPeer>(newpeer);
         var closeconn = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
         Assert.IsType<CloseConnection>(closeconn);
+        await conn.Stop();
     }
 
     [Fact]
     public async Task FinishConnection()
     {
-        dataStream.ReadTimeout = 0;
         var (conn, handshake) = await ConnectAsync();
         await peerChannel.Writer.WriteAsync(new FinishConnection(), tokenSource.Token);
         await peerChannel.Reader.Completion.WaitAsync(tokenSource.Token);
         Assert.False(conn.IsStarted);
+        await conn.Stop();
     }
 
     [Fact]
@@ -185,6 +190,7 @@ public class PeerConnectionTests
         await ctrlChannel.Reader.Completion.WaitAsync(tokenSource.Token);
         await Task.Delay(200, tokenSource.Token); // Wait for PeerConnection to try and read from ctrlChannel
         Assert.False(conn.IsStarted);
+        await conn.Stop();
     }
 
     [Fact]
@@ -202,6 +208,7 @@ public class PeerConnectionTests
         Assert.IsType<CloseConnection>(closeconn);
 
         Assert.False(conn.IsStarted);
+        await conn.Stop();
     }
 
     private async Task<(PeerConnection, Handshake)> ConnectAsync()
@@ -221,10 +228,10 @@ public class PeerConnectionTests
         return (conn, handshakeReceived);
     }
 
-    private List<IPeerMessage> ReadMessages()
+    private List<IPeerMessage> ReadMessages(int maxCount = Int32.MaxValue)
     {
         var msgs = new List<IPeerMessage>();
-        while (true)
+        while (msgs.Count < maxCount)
         {
             var lenBuf = new byte[4];
             try
