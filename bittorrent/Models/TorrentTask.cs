@@ -34,6 +34,7 @@ public class TorrentTask
 
     private Task? _thread;
     private List<Peer> _peers = new();
+    private List<PeerConnection> _connections = new();
     private Channel<IPeerCtrlMsg> _mainCtrlChannel;
     internal BitArray _downloadedPieces;
     internal Dictionary<int, List<Data.Chunk>> _downloadingPieces = new();
@@ -57,6 +58,14 @@ public class TorrentTask
             .ContinueWith(LogException);
     }
 
+    public async Task Stop()
+    {
+        _thread = null;
+        foreach (var conn in _connections)
+            await conn.PeerChannel.Writer.WriteAsync(new FinishConnection(), _cancellation.Token);
+        _cancellation.Cancel();
+    }
+
     public void AddPeer(INetworkClient conn, Peer peer)
     {
         Task.Run(async () => {
@@ -71,7 +80,6 @@ public class TorrentTask
 
     private async Task ManagePeers()
     {
-        var connections = new List<PeerConnection>();
         await Announce();
 
         // Main control loop
@@ -79,7 +87,7 @@ public class TorrentTask
         while (await rx.WaitToReadAsync(_cancellation.Token))
         {
             var message = await rx.ReadAsync(_cancellation.Token);
-            await message.Handle(this, connections);
+            await message.Handle(this, _connections);
         }
     }
 
@@ -172,11 +180,14 @@ public class TorrentTask
         }
     }
 
-    internal void AnnounceDownloadedPiece(Data.Piece piece)
+    internal async Task AnnounceDownloadedPiece(Data.Piece piece, Peer fromPeer)
     {
         var args = (piece.Idx, (double)DownloadedValid / (double)Torrent.TotalSize);
         DownloadedPiece?.Invoke(this, args);
         _downloadedPieces[(int)piece.Idx] = true;
+
+        foreach (var conn in _connections)
+            await conn.PeerChannel.Writer.WriteAsync(new HavePiece(piece.Idx), _cancellation.Token);
     }
 
     private static async Task LogException(Task task)
@@ -303,7 +314,7 @@ file static class CtrlMessageExtensions {
         }
         task.DownloadedValid += pieceBuf.Length;
 
-        task.AnnounceDownloadedPiece(piece);
+        await task.AnnounceDownloadedPiece(piece, msg.Peer);
 
         var peer = connections.First(c => c.Peer == msg.Peer);
         await task.SupplyPiecesToPeer(peer, 1);
