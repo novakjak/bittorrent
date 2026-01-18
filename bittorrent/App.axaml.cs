@@ -7,6 +7,7 @@ using System.Linq;
 using Avalonia.Markup.Xaml;
 using bittorrent.ViewModels;
 using bittorrent.Views;
+using bittorrent.Core;
 
 namespace bittorrent;
 
@@ -19,6 +20,8 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        ConfigParser.Parse<Config>("settings.ini");
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 

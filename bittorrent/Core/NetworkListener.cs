@@ -33,7 +33,11 @@ public class NetworkListener : INetworkListener, IDisposable
     public async Task<INetworkClient> AcceptNetworkClientAsync(CancellationToken token)
         => new NetworkClient(await _listener.AcceptTcpClientAsync(token));
 
-    public void Start() => _listener.Start();
+    public void Start()
+    {
+        _listener.Start();
+        Logger.Info($"Started listening on port {(LocalEndpoint as IPEndPoint).Port}");
+    }
     public void Stop() => _listener.Stop();
     public void Dispose() => _listener.Dispose();
 }

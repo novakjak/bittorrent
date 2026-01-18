@@ -24,5 +24,14 @@
     </PackageReference>
     <PackageReference Include="BencodeNET" Version="5.0.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Ini" Version="10.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="settings.ini">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

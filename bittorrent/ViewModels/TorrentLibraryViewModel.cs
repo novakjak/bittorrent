@@ -22,7 +22,7 @@ public partial class TorrentLibraryViewModel : ViewModelBase
     public ObservableCollection<TorrentTaskViewModel> Torrents { get; } = new();
     public FileDialogInteraction SelectFiles { get; } = new();
 
-    private ConnectionListener _listener = new(8085);
+    private ConnectionListener _listener = new(Config.Get().DefaultPort);
 
     public TorrentLibraryViewModel()
     {
