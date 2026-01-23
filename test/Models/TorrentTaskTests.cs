@@ -30,7 +30,7 @@ public class TorrentTaskTests
     {
         var parser = new BencodeParser();
         torrent = parser.Parse<Torrent>("Resources/torrentData.txt.torrent");
-        torrentData = File.ReadAllBytes("Resources/torrentData.txt");
+        torrentData = File.ReadAllBytes("Resources/torrentData_source_file.txt");
         task = new TorrentTask(torrent);
         haveAll = new BitArray(torrent.NumberOfPieces, true);
     }
