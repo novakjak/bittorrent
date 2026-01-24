@@ -86,8 +86,15 @@ public class TorrentTask
         var rx = _mainCtrlChannel.Reader;
         while (await rx.WaitToReadAsync(_cancellation.Token))
         {
-            var message = await rx.ReadAsync(_cancellation.Token);
-            await message.Handle(this, _connections);
+            try
+            {
+                var message = await rx.ReadAsync(_cancellation.Token);
+                await message.Handle(this, _connections);
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"Handling peer failed: {e.Message}");
+            }
         }
     }
 
@@ -96,10 +103,6 @@ public class TorrentTask
         var pieces = RandomNotDownloadedPieces(pc.PeerHas, count);
         if (pieces.Count() > 0)
         {
-            foreach (var piece in pieces)
-            {
-                _downloadingPieces.Add(piece, new List<Data.Chunk>());
-            }
             var msg = new SupplyPieces(pieces);
             await pc.PeerChannel.Writer.WriteAsync(msg, _cancellation.Token);
         }
@@ -114,10 +117,15 @@ public class TorrentTask
         notDownloaded.Not();
         availableToDownload.And(notDownloaded);
 
-        // Remove all pieces that are being downloaded right now.
-        foreach (KeyValuePair<int, List<Data.Chunk>> kvp in _downloadingPieces)
+        // Remove all pieces that are being downloaded right now unless
+        // we're close to finishing, then once we get to the _endgame_
+        // we try to finish the torrent as quickly as possible, even
+        // though we might download some redundant data.
+        var endgameThreshold = Torrent.TotalSize * 9 / 10;
+        if (DownloadedValid < endgameThreshold)
         {
-            availableToDownload[kvp.Key] = false;
+            foreach (KeyValuePair<int, List<Data.Chunk>> kvp in _downloadingPieces)
+                availableToDownload[kvp.Key] = false;
         }
 
         var pieces = availableToDownload.OfType<bool>()
@@ -257,7 +265,6 @@ file static class CtrlMessageExtensions {
         if (connections.Select(pc => pc.Peer).Contains(msg.Peer))
             return;
         connections.Add(msg.PeerConnection);
-        await task.SupplyPiecesToPeer(msg.PeerConnection, PeerConnection.MAX_DOWNLOADING_PIECES);
         Logger.Debug($"Added Connection: {msg.Peer}");
     }
     internal static async Task Handle(this RequestPieces msg, TorrentTask task, List<PeerConnection> connections)
@@ -279,6 +286,11 @@ file static class CtrlMessageExtensions {
     }
     internal static async Task Handle(this DownloadedChunk msg, TorrentTask task, List<PeerConnection> connections)
     {
+        if (task._downloadedPieces[(int)msg.Chunk.Idx])
+            return;
+        if (!task._downloadingPieces.ContainsKey((int)msg.Chunk.Idx))
+            task._downloadingPieces.Add((int)msg.Chunk.Idx, new List<Data.Chunk>());
+
         var chunks = task._downloadingPieces[(int)msg.Chunk.Idx];
         if (chunks.Any(c => c.Begin == msg.Chunk.Begin))
             return;
@@ -317,14 +329,11 @@ file static class CtrlMessageExtensions {
         await task.AnnounceDownloadedPiece(piece, msg.Peer);
 
         var peer = connections.First(c => c.Peer == msg.Peer);
-        await task.SupplyPiecesToPeer(peer, 1);
     }
     internal static async Task Handle(this CloseConnection msg, TorrentTask task, List<PeerConnection> connections)
     {
         foreach (var idx in msg.WasDownloading)
-        {
             task._downloadingPieces.Remove(idx);
-        }
         connections.RemoveAll(conn => conn.Peer == msg.Peer);
         Logger.Debug($"closed connection with {msg.Peer}");
     }

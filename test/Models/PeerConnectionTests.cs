@@ -68,7 +68,7 @@ public class PeerConnectionTests
     [Fact]
     public async Task AcceptHandshake() {
         var (conn, _) = await ConnectAsync();
-        await conn.Stop();
+        conn.Stop();
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class PeerConnectionTests
 
         Assert.False(conn.AmChoked);
         Assert.True(conn.IsInterested);
-        await conn.Stop();
+        conn.Stop();
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public class PeerConnectionTests
         Assert.IsType<Request>(msgs[7]);
         Assert.IsType<Piece>(msgs[8]);
         Assert.IsType<Cancel>(msgs[9]);
-        await conn.Stop();
+        conn.Stop();
     }
 
     [Fact]
@@ -162,7 +162,7 @@ public class PeerConnectionTests
         Assert.IsType<NewPeer>(newpeer);
         var closeconn = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
         Assert.IsType<CloseConnection>(closeconn);
-        await conn.Stop();
+        conn.Stop();
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public class PeerConnectionTests
         await peerChannel.Writer.WriteAsync(new FinishConnection(), tokenSource.Token);
         await peerChannel.Reader.Completion.WaitAsync(tokenSource.Token);
         Assert.False(conn.IsStarted);
-        await conn.Stop();
+        conn.Stop();
     }
 
     [Fact]
@@ -190,7 +190,7 @@ public class PeerConnectionTests
         await ctrlChannel.Reader.Completion.WaitAsync(tokenSource.Token);
         await Task.Delay(200, tokenSource.Token); // Wait for PeerConnection to try and read from ctrlChannel
         Assert.False(conn.IsStarted);
-        await conn.Stop();
+        conn.Stop();
     }
 
     [Fact]
@@ -208,7 +208,7 @@ public class PeerConnectionTests
         Assert.IsType<CloseConnection>(closeconn);
 
         Assert.False(conn.IsStarted);
-        await conn.Stop();
+        conn.Stop();
     }
 
     private async Task<(PeerConnection, Handshake)> ConnectAsync()

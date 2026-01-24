@@ -36,7 +36,7 @@ public class NetworkListener : INetworkListener, IDisposable
     public void Start()
     {
         _listener.Start();
-        Logger.Info($"Started listening on port {(LocalEndpoint as IPEndPoint).Port}");
+        Logger.Info($"Started listening on port {(LocalEndpoint as IPEndPoint)!.Port}");
     }
     public void Stop() => _listener.Stop();
     public void Dispose() => _listener.Dispose();
