@@ -20,6 +20,7 @@ public class PeerConnection
     public const int CHUNK_SIZE = 16384; // 2^14 aka 16 kiB
     public const int MAXIMUM_CHUNK_SIZE = 131072 ; // 2^17 aka 128 kiB
     public const int MAX_DOWNLOADING_PIECES = 20;
+    public const int TIMEOUT = 2 * 60 * 1000;
 
     public Peer Peer { get; }
     public Torrent Torrent { get; }
@@ -152,14 +153,16 @@ public class PeerConnection
     private async Task ListenOnMessages()
     {
         var stream = _client.GetStream();
+        var timeout = CancellationTokenSource.CreateLinkedTokenSource(_cancellation.Token);
         while (true)
         {
+            timeout.CancelAfter(PeerConnection.TIMEOUT); // Reset timeout
             var lenBuf = new byte[4];
-            await stream.ReadExactlyAsync(lenBuf, 0, 4, _cancellation.Token);
+            await stream.ReadExactlyAsync(lenBuf, 0, 4, timeout.Token);
             var len = (int)Util.FromNetworkOrderBytes(lenBuf, 0);
             var msgBuf = new byte[4 + len];
             lenBuf.CopyTo(msgBuf, 0);
-            await stream.ReadExactlyAsync(msgBuf, 4, len, _cancellation.Token);
+            await stream.ReadExactlyAsync(msgBuf, 4, len, timeout.Token);
             var msg = PeerMessageParser.Parse(msgBuf);
             if (msg is null) continue;
             await HandleMessage(msg);
