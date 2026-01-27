@@ -27,6 +27,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Ini" Version="10.0.2" />
+    <PackageReference Include="Svg.Controls.Skia.Avalonia" Version="11.3.9.2" />
   </ItemGroup>
 
   <ItemGroup>
