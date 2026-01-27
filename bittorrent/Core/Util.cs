@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using Avalonia.Data.Converters;
 
 namespace bittorrent.Core;
 
@@ -46,4 +47,30 @@ public static class Util
 		res |= (byte)((b & 1 << 7) >> 7);
 		return res;
 	}
+
+	public static string SizeToString(long byteCount)
+	{
+		if (byteCount == 0)
+			return "0B";
+		string[] units = ["B", "KB", "MB", "GB", "TB"];
+		var scale = Math.Floor(Math.Log((double)byteCount, 1000.0));
+		if (scale > units.Length)
+			scale = units.Length;
+		var size = (double)byteCount / (Math.Pow(1000.0, scale));
+		return $"{size:0.##}{units[(int)scale]}";
+	}
+	public static FuncValueConverter<int?, string?> SizeConverter { get; } =
+		new FuncValueConverter<int?, string?>(value =>
+		{
+			if (value is null)
+				value = 0;
+			return Util.SizeToString((long)value);
+		});
+	public static FuncValueConverter<long?, string?> LongSizeConverter { get; } =
+		new FuncValueConverter<long?, string?>(value =>
+		{
+			if (value is null)
+				value = 0;
+			return Util.SizeToString((long)value);
+		});
 }

@@ -16,6 +16,15 @@ public partial class TorrentTaskViewModel : ViewModelBase
     [ObservableProperty]
     private double _percentComplete = 0.0;
 
+    [ObservableProperty]
+    private int _peerCount = 0;
+
+    [ObservableProperty]
+    private int _downloaded = 0;
+
+    [ObservableProperty]
+    private int _uploaded = 0;
+
     public TorrentTask Task { get; private set; }
 
     public TorrentTaskViewModel(BT.Torrent t)
@@ -24,11 +33,15 @@ public partial class TorrentTaskViewModel : ViewModelBase
         InfoHash = t.OriginalInfoHashBytes;
         Task = new TorrentTask(t);
         Task.DownloadedPiece += HandleDownloadedPiece;
+        Task.PeerCountChanged += HandlePeerCountChanged;
         Task.Start();
     }
 
-    public void HandleDownloadedPiece(object? sender, (int pieceIdx, double completion) args)
+    private void HandleDownloadedPiece(object? sender, (int pieceIdx, double completion) args)
     {
         PercentComplete = args.completion;
+        Downloaded = Task.Downloaded;
     }
+    private void HandlePeerCountChanged(object? sender, int count)
+        => PeerCount = count;
 }

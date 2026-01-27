@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:bittorrent.ViewModels"
+        xmlns:views="using:bittorrent.Views"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -15,25 +16,43 @@
         <vm:TorrentLibraryViewModel/>
     </Design.DataContext>
 
-    <Grid RowDefinitions="auto,*" x:Name="Root">
-        <Grid Grid.Row="0" ColumnDefinitions='auto, *'>
-            <TextBlock Grid.Column="0">Bittorrent client</TextBlock>
-            <Button Command="{Binding AddTorrentCommand}" Grid.Column="1">Add torrent</Button>
+    <Window.Styles>
+    </Window.Styles>
+
+    <DockPanel x:Name="Root">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions='auto, *' Margin="10" HorizontalAlignment="Stretch">
+            <Button Command="{Binding AddTorrentCommand}"
+                Grid.Column="1" ToolTip.Tip="Add Torrent">
+                <StackPanel Orientation="Horizontal">
+                    <Svg HorizontalAlignment="Left" Width="15" Height="15"
+                        Path="/Assets/Vendor/fontawesome-free-7.1.0-desktop/svgs/solid/plus.svg" />
+                    <TextBlock HorizontalAlignment="Right">Add torrent</TextBlock>
+                </StackPanel>
+            </Button>
+        </Grid>
+        <Expander DockPanel.Dock="Bottom" ExpandDirection="Up" HorizontalAlignment="Stretch">
+            <views:TorrentLongInfoView DataContext="{Binding #Torrents.SelectedItem}" />
+        </Expander>
+
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="4*,3*,1*,1*,1*">
+            <TextBlock Grid.Column="0" Text="Name" />
+            <TextBlock Grid.Column="1" Text="Progress" />
+            <TextBlock Grid.Column="2" Text="Peers" />
+            <TextBlock Grid.Column="3" Text="Downloaded" />
+            <TextBlock Grid.Column="4" Text="Uploaded" />
         </Grid>
 
-        <ScrollViewer Grid.Row="1">
-            <ItemsControl ItemsSource="{Binding Torrents}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="vm:TorrentTaskViewModel">
-                        <Grid ColumnDefinitions="*,*,*,*">
-                            <TextBlock Text="{Binding Name}" Grid.Column="0"/>
-                            <TextBlock Text="{Binding PercentComplete}" Grid.Column="1"/>
-                            <Slider Minimum="0" Maximum="1" Value="{Binding PercentComplete, Mode=OneWay}" IsEnabled="False" Grid.Column="2"/>
-                        </Grid>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
-    </Grid>
+        <ListBox DockPanel.Dock="Top"
+                 x:Name="Torrents"
+                 ItemsSource="{Binding Torrents}"
+                 ScrollViewer.AllowAutoHide="True">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="vm:TorrentTaskViewModel">
+                    <views:TorrentShortInfoView />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+    </DockPanel>
 
 </Window>

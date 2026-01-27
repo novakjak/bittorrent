@@ -22,18 +22,18 @@ namespace bittorrent.Models;
 
 public class TorrentTask
 {
-    public readonly BT.Torrent Torrent;
+    public BT.Torrent Torrent { get; }
     public byte[] HashId { get => Torrent.OriginalInfoHashBytes; }
-    public int PeerCount { get; private set; } = 0;
+    public int PeerCount => _connections.Count();
     public int Uploaded { get; private set; } = 0;
     public int Downloaded { get; internal set; } = 0;
     public int DownloadedValid { get; internal set; } = 0;
     public string PeerId { get; private set; } = Util.GenerateRandomString(20);
 
     public event EventHandler<(int pieceIdx, double completion)>? DownloadedPiece;
+    public event EventHandler<int>? PeerCountChanged;
 
     private Task? _thread;
-    private List<Peer> _peers = new();
     private List<PeerConnection> _connections = new();
     private Channel<IPeerCtrlMsg> _mainCtrlChannel;
     internal BitArray _downloadedPieces;
@@ -63,6 +63,8 @@ public class TorrentTask
         _thread = null;
         foreach (var conn in _connections)
             await conn.PeerChannel.Writer.WriteAsync(new FinishConnection(), _cancellation.Token);
+        _connections.Clear();
+        RaisePeerCountChanged();
         _cancellation.Cancel();
     }
 
@@ -77,6 +79,9 @@ public class TorrentTask
                 peerChannel, _downloadedPieces, peerTokenSource);
         }).ContinueWith(LogException);
     }
+
+    public void RaisePeerCountChanged()
+        => PeerCountChanged?.Invoke(this, PeerCount);
 
     private async Task ManagePeers()
     {
@@ -266,6 +271,7 @@ file static class CtrlMessageExtensions {
             return;
         connections.Add(msg.PeerConnection);
         Logger.Debug($"Added Connection: {msg.Peer}");
+        task.RaisePeerCountChanged();
     }
     internal static async Task Handle(this RequestPieces msg, TorrentTask task, List<PeerConnection> connections)
     {
@@ -335,6 +341,7 @@ file static class CtrlMessageExtensions {
         foreach (var idx in msg.WasDownloading)
             task._downloadingPieces.Remove(idx);
         connections.RemoveAll(conn => conn.Peer == msg.Peer);
+        task.RaisePeerCountChanged();
         Logger.Debug($"closed connection with {msg.Peer}");
     }
     internal static async Task Handle(this IPeerCtrlMsg msg, TorrentTask task, List<PeerConnection> connections)
