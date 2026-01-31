@@ -110,6 +110,8 @@ public class PeerConnectionTests
         Assert.Equal(PeerConnection.MAX_DOWNLOADING_PIECES, ((RequestPieces)requestpieces).Count);
         Assert.Equal(peer, requestpieces.Peer);
 
+        var request = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
+        Assert.IsType<RequestPieces>(request);
         var chunk = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
         Assert.IsType<DownloadedChunk>(chunk);
         Assert.Equal(peer, chunk.Peer);
@@ -164,6 +166,8 @@ public class PeerConnectionTests
         dataStream.Close();
         var newpeer = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
         Assert.IsType<NewPeer>(newpeer);
+        var request = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
+        Assert.IsType<RequestPieces>(request);
         var closeconn = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
         Assert.IsType<CloseConnection>(closeconn);
         conn.Stop();
@@ -208,6 +212,8 @@ public class PeerConnectionTests
 
         await peerChannel.Reader.Completion.WaitAsync(tokenSource.Token);
 
+        var request = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
+        Assert.IsType<RequestPieces>(request);
         var closeconn = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
         Assert.IsType<CloseConnection>(closeconn);
 
