@@ -8,22 +8,23 @@
              x:Class="bittorrent.Views.TorrentLongInfoView"
              x:DataType="vm:TorrentTaskViewModel">
 
-    <Grid ColumnDefinitions="*,*,*"
-          RowDefinitions="auto,auto"
-          HorizontalAlignment="Stretch">
+  <Grid ColumnDefinitions="*,*,*"
+        RowDefinitions="auto,auto"
+        HorizontalAlignment="Stretch">
 
-        <TextBlock Grid.Row="0"
-                   Grid.Column="0"
-                   Grid.ColumnSpan="3"
-                   Text="{Binding Name, FallbackValue=[no torrent selected], Mode=OneTime}" />
-        <TextBlock Grid.Row="1" Grid.Column="0">
-            Number of pieces: <Run Text="{Binding Task.Torrent.NumberOfPieces, Mode=OneTime}" />
-        </TextBlock>
-        <TextBlock Grid.Row="1" Grid.Column="1">
-            Piece size: <Run Text="{Binding Task.Torrent.PieceSize, Converter={x:Static core:Util.LongSizeConverter}, Mode=OneTime}" />
-        </TextBlock>
-        <TextBlock Grid.Row="1" Grid.Column="2">
-            Total size: <Run Text="{Binding Task.Torrent.TotalSize, Converter={x:Static core:Util.LongSizeConverter}, Mode=OneTime}" />
-        </TextBlock>
-    </Grid>
+    <TextBlock Grid.Row="0"
+               Grid.Column="0"
+               Grid.ColumnSpan="3"
+               Text="{Binding Name, FallbackValue=[no torrent selected], Mode=OneTime}" />
+
+    <TextBlock Grid.Row="1" Grid.Column="0">
+      Number of pieces: <Run Text="{Binding Task.Torrent.NumberOfPieces, Mode=OneTime}" />
+    </TextBlock>
+    <TextBlock Grid.Row="1" Grid.Column="1">
+      Piece size: <Run Text="{Binding Task.Torrent.PieceSize, Converter={x:Static core:Util.LongSizeConverter}, Mode=OneTime}" />
+    </TextBlock>
+    <TextBlock Grid.Row="1" Grid.Column="2">
+      Total size: <Run Text="{Binding Task.Torrent.TotalSize, Converter={x:Static core:Util.LongSizeConverter}, Mode=OneTime}" />
+    </TextBlock>
+  </Grid>
 </UserControl>

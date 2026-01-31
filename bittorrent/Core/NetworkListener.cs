@@ -18,10 +18,10 @@ public interface INetworkListener : IDisposable
 
 public class NetworkListener : INetworkListener, IDisposable
 {
-    private TcpListener _listener;
+    private readonly TcpListener _listener;
 
     public EndPoint LocalEndpoint { get => _listener.LocalEndpoint; }
-    
+
     private NetworkListener(TcpListener listener) => _listener = listener;
 
     public static INetworkListener Create(int port)

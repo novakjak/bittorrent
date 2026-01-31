@@ -17,7 +17,7 @@ public interface INetworkClient : IDisposable
 
 public class NetworkClient : INetworkClient
 {
-    private TcpClient _client;
+    private readonly TcpClient _client;
 
     public IPEndPoint IPEndPoint { get => (IPEndPoint)_client.Client.LocalEndPoint!; }
     public NetworkClient() => _client = new TcpClient();

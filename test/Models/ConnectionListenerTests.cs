@@ -1,35 +1,37 @@
 using System;
-using System.Text;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Moq;
 
 using BencodeNET.Parsing;
 using BencodeNET.Torrents;
 
-using bittorrent.Models;
 using bittorrent.Core;
+using bittorrent.Models;
+
+using Moq;
 
 namespace test.Models;
 
 public class ConnectionListenerTests
 {
-    Torrent torrent;
-    byte[] peerId;
-    Peer peer;
-    IPEndPoint endpoint;
-    Stream dataStream;
-    INetworkClient mockClient;
-    CancellationTokenSource tokenSource = new();
-    MockNetworkListener networkListener;
-    ConnectionListener listener;
-    EventWaitHandle waitHandle;
+    readonly Torrent torrent;
+    readonly byte[] peerId;
+    readonly Peer peer;
+    readonly IPEndPoint endpoint;
+    readonly Stream dataStream;
+    readonly INetworkClient mockClient;
+    readonly CancellationTokenSource tokenSource = new();
+    readonly MockNetworkListener networkListener;
+    readonly ConnectionListener listener;
+    readonly EventWaitHandle waitHandle;
     INetworkClient? gotClient;
     Peer? gotPeer;
 
-    public ConnectionListenerTests() {
+    public ConnectionListenerTests()
+    {
         var parser = new BencodeParser();
         torrent = parser.Parse<Torrent>("Resources/torrentData.txt.torrent");
         peerId = Encoding.ASCII.GetBytes(Util.GenerateRandomString(20));

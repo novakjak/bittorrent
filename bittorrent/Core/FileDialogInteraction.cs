@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows.Input;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
@@ -10,12 +11,14 @@ using Out = System.Collections.Generic.IEnumerable<Avalonia.Platform.Storage.ISt
 
 namespace bittorrent.Core;
 
-public sealed class FileDialogInteraction : IDisposable, ICommand {
+public sealed class FileDialogInteraction : IDisposable, ICommand
+{
     private Func<Task<Out>>? _handler;
 
     public Task<Out> Handle()
     {
-        if (_handler is null) {
+        if (_handler is null)
+        {
             throw new InvalidOperationException("No handler was supplied");
         }
         return _handler();

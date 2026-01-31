@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Platform.Storage;
-using Avalonia.Interactivity;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+
 using bittorrent.ViewModels;
 
 namespace bittorrent.Views;
@@ -13,7 +15,7 @@ namespace bittorrent.Views;
 public partial class TorrentLibrary : Window
 {
     private IDisposable? _fileDialogInteractionDisposable = null;
-    
+
     public TorrentLibrary()
     {
         InitializeComponent();
@@ -23,7 +25,8 @@ public partial class TorrentLibrary : Window
     {
         _fileDialogInteractionDisposable?.Dispose();
 
-        if (DataContext is TorrentLibraryViewModel vm) {
+        if (DataContext is TorrentLibraryViewModel vm)
+        {
             _fileDialogInteractionDisposable = vm.SelectFiles.RegisterHandler(FileDialogHandler);
         }
 

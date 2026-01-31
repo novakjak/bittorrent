@@ -1,31 +1,33 @@
 using System;
 using System.Collections;
-using System.Text;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.IO;
-using Moq;
 
 using BencodeNET.Parsing;
 using BencodeNET.Torrents;
 
-using bittorrent.Models;
 using bittorrent.Core;
-using Data=bittorrent.Core.Data;
+using bittorrent.Models;
+
+using Moq;
+
+using Data = bittorrent.Core.Data;
 
 namespace test.Models;
 
 public class TorrentTaskTests
 {
 
-    Torrent torrent;
-    byte[] torrentData;
-    TorrentTask task;
+    readonly Torrent torrent;
+    readonly byte[] torrentData;
+    readonly TorrentTask task;
 
-    BitArray haveAll;
-    
+    readonly BitArray haveAll;
+
     public TorrentTaskTests()
     {
         var parser = new BencodeParser();

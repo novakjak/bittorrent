@@ -5,13 +5,14 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+
 using bittorrent.Core;
 
 namespace test.Models;
 
 public class MockNetworkListener : INetworkListener
 {
-    private Channel<INetworkClient> clients;
+    private readonly Channel<INetworkClient> clients;
     public EndPoint LocalEndpoint { get; private set; }
 
     private MockNetworkListener(EndPoint localEndPoint)
@@ -28,7 +29,7 @@ public class MockNetworkListener : INetworkListener
     public async Task AddNetworkClient(INetworkClient client, CancellationToken token)
         => await clients.Writer.WriteAsync(client, token);
 
-    public void Start() {}
+    public void Start() { }
     public void Stop() => clients.Writer.Complete();
-    public void Dispose() {}
+    public void Dispose() { }
 }

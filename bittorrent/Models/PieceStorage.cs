@@ -1,11 +1,12 @@
 using System;
-using System.IO;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+
 using BencodeNET.Torrents;
 
-using Data=bittorrent.Core.Data;
+using Data = bittorrent.Core.Data;
 
 namespace bittorrent;
 
@@ -13,9 +14,9 @@ public sealed class PieceStorage
 {
     public Torrent Torrent { get; }
 
-    private TorrentFileMode _fileMode;
+    private readonly TorrentFileMode _fileMode;
     private FileStream? _file;
-    private List<FileStream>? _files = new();
+    private readonly List<FileStream>? _files = new();
 
     public PieceStorage(Torrent torrent)
     {
@@ -99,7 +100,8 @@ public sealed class PieceStorage
             {
                 file.SetLength(fileInfo.FileSize);
             }
-        } catch (Exception e)
+        }
+        catch (Exception e)
         {
             Logger.Warn(e.Message);
             return;

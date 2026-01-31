@@ -10,49 +10,51 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="bittorrent">
 
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:TorrentLibraryViewModel/>
-    </Design.DataContext>
+  <Design.DataContext>
+    <!-- This only sets the DataContext for the previewer in an IDE,
+         to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+    <vm:TorrentLibraryViewModel/>
+  </Design.DataContext>
 
-    <Window.Styles>
-    </Window.Styles>
+  <Window.Styles>
+  </Window.Styles>
 
-    <DockPanel x:Name="Root">
-        <Grid DockPanel.Dock="Top" ColumnDefinitions='auto, *' Margin="10" HorizontalAlignment="Stretch">
-            <Button Command="{Binding AddTorrentCommand}"
-                Grid.Column="1" ToolTip.Tip="Add Torrent">
-                <StackPanel Orientation="Horizontal">
-                    <Svg HorizontalAlignment="Left" Width="15" Height="15"
-                        Path="/Assets/Vendor/fontawesome-free-7.1.0-desktop/svgs/solid/plus.svg" />
-                    <TextBlock HorizontalAlignment="Right">Add torrent</TextBlock>
-                </StackPanel>
-            </Button>
-        </Grid>
-        <Expander DockPanel.Dock="Bottom" ExpandDirection="Up" HorizontalAlignment="Stretch">
-            <views:TorrentLongInfoView DataContext="{Binding #Torrents.SelectedItem}" />
-        </Expander>
+  <DockPanel x:Name="Root">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions='auto, *' Margin="10"
+          HorizontalAlignment="Stretch">
+      <Button Command="{Binding AddTorrentCommand}"
+              Grid.Column="1" ToolTip.Tip="Add Torrent">
+        <StackPanel Orientation="Horizontal">
+          <Svg HorizontalAlignment="Left" Width="15" Height="15"
+              Path="/Assets/Vendor/fontawesome-free-7.1.0-desktop/svgs/solid/plus.svg" />
+          <TextBlock HorizontalAlignment="Right">Add torrent</TextBlock>
+        </StackPanel>
+      </Button>
+    </Grid>
 
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="4*,3*,1*,1*,1*">
-            <TextBlock Grid.Column="0" Text="Name" />
-            <TextBlock Grid.Column="1" Text="Progress" />
-            <TextBlock Grid.Column="2" Text="Peers" />
-            <TextBlock Grid.Column="3" Text="Downloaded" />
-            <TextBlock Grid.Column="4" Text="Uploaded" />
-        </Grid>
+    <Expander DockPanel.Dock="Bottom" ExpandDirection="Up" HorizontalAlignment="Stretch">
+      <views:TorrentLongInfoView DataContext="{Binding #Torrents.SelectedItem}" />
+    </Expander>
 
-        <ListBox DockPanel.Dock="Top"
-                 x:Name="Torrents"
-                 ItemsSource="{Binding Torrents}"
-                 ScrollViewer.AllowAutoHide="True">
-            <ListBox.ItemTemplate>
-                <DataTemplate DataType="vm:TorrentTaskViewModel">
-                    <views:TorrentShortInfoView />
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="4*,3*,1*,1*,1*">
+      <TextBlock Grid.Column="0" Text="Name" />
+      <TextBlock Grid.Column="1" Text="Progress" />
+      <TextBlock Grid.Column="2" Text="Peers" />
+      <TextBlock Grid.Column="3" Text="Downloaded" />
+      <TextBlock Grid.Column="4" Text="Uploaded" />
+    </Grid>
 
-    </DockPanel>
+    <ListBox DockPanel.Dock="Top"
+             x:Name="Torrents"
+             ItemsSource="{Binding Torrents}"
+             ScrollViewer.AllowAutoHide="True">
+      <ListBox.ItemTemplate>
+        <DataTemplate DataType="vm:TorrentTaskViewModel">
+          <views:TorrentShortInfoView />
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+  </DockPanel>
 
 </Window>

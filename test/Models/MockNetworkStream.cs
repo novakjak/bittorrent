@@ -7,12 +7,12 @@ namespace test.Models;
 
 public class MockNetworkStream : Stream, IDisposable
 {
-    private MemoryStream _to = new();
+    private readonly MemoryStream _to = new();
     private long _toRead = 0;
-    private SemaphoreSlim _toSemaphore = new(0);
-    private MemoryStream _from = new();
+    private readonly SemaphoreSlim _toSemaphore = new(0);
+    private readonly MemoryStream _from = new();
     private long _fromRead = 0;
-    private SemaphoreSlim _fromSemaphore = new(0);
+    private readonly SemaphoreSlim _fromSemaphore = new(0);
     private bool isClosed = false;
 
     public override bool CanSeek { get => false; }
@@ -23,7 +23,7 @@ public class MockNetworkStream : Stream, IDisposable
     public override long Length { get => Math.Max(_to.Length, _from.Length); }
     public override int ReadTimeout { get; set; } = 10000;
 
-    public MockNetworkStream() {}
+    public MockNetworkStream() { }
 
     public override int Read(byte[] buffer, int start, int count)
     {
@@ -40,7 +40,8 @@ public class MockNetworkStream : Stream, IDisposable
             _fromSemaphore.Wait(ReadTimeout);
         return res;
     }
-    public override void Write(byte[] buffer, int start, int count) {
+    public override void Write(byte[] buffer, int start, int count)
+    {
         if (isClosed)
         {
             throw new ObjectDisposedException(this.ToString());

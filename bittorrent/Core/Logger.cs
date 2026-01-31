@@ -12,10 +12,9 @@ public sealed class Logger
     private readonly static string projectName = Assembly.GetCallingAssembly().GetName().Name!;
     private readonly static string logFilePath = $"{projectName}.log";
 
-    
     private static Logger? _instance;
-    private FileStream _logFile;
-    private StreamWriter _writer;
+    private readonly FileStream _logFile;
+    private readonly StreamWriter _writer;
 
     private Logger()
     {
@@ -79,7 +78,6 @@ public sealed class Logger
 
         await logger._writer.WriteLineAsync(logMessage.AsMemory(), tokenSource!.Token);
         await logger._writer.FlushAsync(tokenSource!.Token);
-        
     }
 
     public static void Debug(string message, [CallerMemberName] string member = "", [CallerLineNumber] int ln = 0)

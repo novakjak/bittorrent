@@ -1,7 +1,10 @@
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
-using BT = BencodeNET.Torrents;
+
 using bittorrent.Models;
+
+using CommunityToolkit.Mvvm.ComponentModel;
+
+using BT = BencodeNET.Torrents;
 
 namespace bittorrent.ViewModels;
 

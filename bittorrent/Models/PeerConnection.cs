@@ -1,14 +1,15 @@
 using System;
-using System.Linq;
-using System.Text;
-using System.IO;
-using System.Net;
-using System.Net.Sockets;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+
 using BencodeNET.Torrents;
 
 using bittorrent.Core;
@@ -18,7 +19,7 @@ namespace bittorrent.Models;
 public class PeerConnection
 {
     public const int CHUNK_SIZE = 16384; // 2^14 aka 16 kiB
-    public const int MAXIMUM_CHUNK_SIZE = 131072 ; // 2^17 aka 128 kiB
+    public const int MAXIMUM_CHUNK_SIZE = 131072; // 2^17 aka 128 kiB
     public const int MAX_DOWNLOADING_PIECES = 20;
     public const int TIMEOUT = 2 * 60 * 1000;
 
@@ -35,16 +36,16 @@ public class PeerConnection
     public bool IsStarted { get => _listenerTask is not null && _controlTask is not null; }
 
     private INetworkClient _client = new NetworkClient();
-    private List<IPeerMessage> _queuedMsgs = new();
-    private Lock _queueLock = new();
-    private List<int> _piecesToDownload = new();
-    private List<Request> _requestedChunks = new();
-    private List<Request> _peerRequestedChunks = new();
-    private List<Cancel> _peerCancelledChunks = new();
+    private readonly List<IPeerMessage> _queuedMsgs = new();
+    private readonly Lock _queueLock = new();
+    private readonly List<int> _piecesToDownload = new();
+    private readonly List<Request> _requestedChunks = new();
+    private readonly List<Request> _peerRequestedChunks = new();
+    private readonly List<Cancel> _peerCancelledChunks = new();
     private Task? _listenerTask;
     private Task? _controlTask;
-    private CancellationTokenSource _cancellation;
-    private Channel<IPeerCtrlMsg> _ctrlChannel;
+    private readonly CancellationTokenSource _cancellation;
+    private readonly Channel<IPeerCtrlMsg> _ctrlChannel;
 
 
     private PeerConnection(
@@ -143,7 +144,7 @@ public class PeerConnection
             }
             _ctrlChannel.Writer.TryWrite(new CloseConnection(Peer, [.. _piecesToDownload, .. toDownload]));
         }
-        catch {} // Do nothing if it's not possible to write
+        catch { } // Do nothing if it's not possible to write
         _piecesToDownload.Clear();
         PeerChannel.Writer.TryComplete();
         _cancellation.Cancel();

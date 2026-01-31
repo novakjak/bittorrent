@@ -1,20 +1,23 @@
 using System;
-using System.Text;
+using System.Collections;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Threading.Channels;
-using System.Collections;
-using Moq;
+using System.Threading.Tasks;
+
 using BencodeNET.Parsing;
 using BencodeNET.Torrents;
+
+using bittorrent.Core;
+using bittorrent.Models;
+
+using Moq;
+
 using Xunit;
 using Xunit.v3;
-
-using bittorrent.Models;
-using bittorrent.Core;
 
 [assembly: CaptureConsole]
 
@@ -22,19 +25,19 @@ namespace test.Models;
 
 public class PeerConnectionTests
 {
-    Torrent torrent;
-    byte[] testPeerId;
-    byte[] externalPeerId;
-    Channel<IPeerCtrlMsg> ctrlChannel;
-    Channel<ITaskCtrlMsg> peerChannel;
-    BitArray haveNone;
-    BitArray haveAll;
-    Peer peer;
-    IPEndPoint endpoint;
-    Stream dataStream;
-    INetworkClient mockClient;
-    CancellationTokenSource tokenSource = new();
-    CancellationTokenSource peerTokenSource = new();
+    readonly Torrent torrent;
+    readonly byte[] testPeerId;
+    readonly byte[] externalPeerId;
+    readonly Channel<IPeerCtrlMsg> ctrlChannel;
+    readonly Channel<ITaskCtrlMsg> peerChannel;
+    readonly BitArray haveNone;
+    readonly BitArray haveAll;
+    readonly Peer peer;
+    readonly IPEndPoint endpoint;
+    readonly Stream dataStream;
+    readonly INetworkClient mockClient;
+    readonly CancellationTokenSource tokenSource = new();
+    readonly CancellationTokenSource peerTokenSource = new();
 
     public PeerConnectionTests()
     {
@@ -66,7 +69,8 @@ public class PeerConnectionTests
     }
 
     [Fact]
-    public async Task AcceptHandshake() {
+    public async Task AcceptHandshake()
+    {
         var (conn, _) = await ConnectAsync();
         conn.Stop();
     }
@@ -112,7 +116,7 @@ public class PeerConnectionTests
         var chunkMsg = (DownloadedChunk)chunk;
         Assert.Equal(1u, chunkMsg.Chunk.Idx);
         Assert.Equal(2u, chunkMsg.Chunk.Begin);
-        Assert.Equal(new byte[] {0, 1, 2, 3}, chunkMsg.Chunk.Data);
+        Assert.Equal(new byte[] { 0, 1, 2, 3 }, chunkMsg.Chunk.Data);
 
         Assert.False(conn.AmChoked);
         Assert.True(conn.IsInterested);

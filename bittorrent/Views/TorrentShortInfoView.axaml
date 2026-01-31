@@ -8,34 +8,37 @@
              x:Class="bittorrent.Views.TorrentShortInfoView"
              x:DataType="vm:TorrentTaskViewModel">
 
-    <UserControl.Styles>
-        <Style Selector="ProgressBar">
-            <Setter Property="Height" Value="20"/>
-        </Style>
-        <Style Selector="Grid > Decorator">
-            <Setter Property="Padding" Value="10,0" />
-            <Setter Property="Margin" Value="0" />
-        </Style>
-        <Style Selector="Grid > Layoutable">
-            <Setter Property="VerticalAlignment" Value="Stretch" />
-        </Style>
-        <Style Selector="Grid > TemplatedControl:nth-child(even)">
-            <Setter Property="Background" Value="Gainsboro" />
-        </Style>
-        <Style Selector="Grid > TextBlock:nth-child(even)">
-            <Setter Property="Background" Value="Gainsboro" />
-        </Style>
-    </UserControl.Styles>
+  <UserControl.Styles>
+    <Style Selector="ProgressBar">
+      <Setter Property="Height" Value="20"/>
+    </Style>
 
-    <Grid ColumnDefinitions="4*,3*,1*,1*,1*" VerticalAlignment="Stretch">
-        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Grid.Column="0"/>
-        <ProgressBar Minimum="0"
-                     Maximum="1"
-                     Value="{Binding PercentComplete, Mode=OneWay}"
-                     ShowProgressText="True"
-                     Grid.Column="1" />
-        <TextBlock Text="{Binding PeerCount}" TextAlignment="End" Grid.Column="2"/>
-        <TextBlock Text="{Binding Downloaded, Converter={x:Static core:Util.SizeConverter}}" TextAlignment="End" Grid.Column="3" />
-        <TextBlock Text="{Binding Uploaded, Converter={x:Static core:Util.SizeConverter}}" TextAlignment="End" Grid.Column="4" />
-    </Grid>
+    <Style Selector="Grid > Decorator">
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style Selector="Grid > Layoutable">
+      <Setter Property="VerticalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Grid > TemplatedControl:nth-child(even)">
+      <Setter Property="Background" Value="Gainsboro" />
+    </Style>
+    <Style Selector="Grid > TextBlock:nth-child(even)">
+      <Setter Property="Background" Value="Gainsboro" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid ColumnDefinitions="4*,3*,1*,1*,1*" VerticalAlignment="Stretch">
+    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Grid.Column="0"/>
+    <ProgressBar Minimum="0"
+                 Maximum="1"
+                 Value="{Binding PercentComplete, Mode=OneWay}"
+                 ShowProgressText="True"
+                 Grid.Column="1" />
+    <TextBlock Text="{Binding PeerCount}" TextAlignment="End" Grid.Column="2"/>
+    <TextBlock Text="{Binding Downloaded, Converter={x:Static core:Util.SizeConverter}}"
+               TextAlignment="End" Grid.Column="3" />
+    <TextBlock Text="{Binding Uploaded, Converter={x:Static core:Util.SizeConverter}}"
+               TextAlignment="End" Grid.Column="4" />
+  </Grid>
 </UserControl>

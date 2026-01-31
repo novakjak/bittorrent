@@ -1,22 +1,24 @@
 using System;
-using System.Linq;
-using System.IO;
-using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net;
-using System.Net.Sockets;
 using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Threading.Channels;
+using System.Net.Sockets;
 using System.Security.Cryptography;
-using BencodeNET.Parsing;
+using System.Text;
+using System.Threading;
+using System.Threading.Channels;
+using System.Threading.Tasks;
+
 using BencodeNET.Objects;
-using BT = BencodeNET.Torrents;
+using BencodeNET.Parsing;
 
 using bittorrent.Core;
-using Data=bittorrent.Core.Data;
+
+using BT = BencodeNET.Torrents;
+using Data = bittorrent.Core.Data;
 
 namespace bittorrent.Models;
 
@@ -34,8 +36,8 @@ public class TorrentTask
     public event EventHandler<int>? PeerCountChanged;
 
     private Task? _thread;
-    private List<PeerConnection> _connections = new();
-    private Channel<IPeerCtrlMsg> _mainCtrlChannel;
+    private readonly List<PeerConnection> _connections = new();
+    private readonly Channel<IPeerCtrlMsg> _mainCtrlChannel;
     internal BitArray _downloadedPieces;
     internal Dictionary<int, List<Data.Chunk>> _downloadingPieces = new();
     internal PieceStorage _storage;
@@ -70,7 +72,8 @@ public class TorrentTask
 
     public void AddPeer(INetworkClient conn, Peer peer)
     {
-        Task.Run(async () => {
+        Task.Run(async () =>
+        {
             var peerChannel = Channel.CreateUnbounded<ITaskCtrlMsg>();
             var peerId = Encoding.ASCII.GetBytes(PeerId);
             var peerTokenSource = new CancellationTokenSource();
@@ -264,7 +267,8 @@ public class TorrentTask
     }
 }
 
-file static class CtrlMessageExtensions {
+file static class CtrlMessageExtensions
+{
     internal static async Task Handle(this NewPeer msg, TorrentTask task, List<PeerConnection> connections)
     {
         if (connections.Select(pc => pc.Peer).Contains(msg.Peer))
@@ -285,7 +289,7 @@ file static class CtrlMessageExtensions {
         if (request.Idx >= task._downloadedPieces.Count || !task._downloadedPieces[(int)request.Idx])
             return;
         var piece = await task._storage.GetPieceAsync((int)request.Idx);
-        var buf = new byte[request.Length]; 
+        var buf = new byte[request.Length];
         Array.Copy(piece.Data, (int)request.Begin, buf, 0, (int)request.Length);
         var chunk = new Data.Chunk(request.Idx, request.Begin, buf);
         await conn.PeerChannel.Writer.WriteAsync(new SupplyChunk(chunk), task._cancellation.Token);

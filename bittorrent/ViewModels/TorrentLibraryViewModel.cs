@@ -1,19 +1,24 @@
 ﻿using System;
-using System.Linq;
-using System.IO;
-using System.Net.Sockets;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.Input;
+using System.IO;
+using System.Linq;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+
 using BencodeNET.Parsing;
-using BT = BencodeNET.Torrents;
+
 using bittorrent.Core;
 using bittorrent.Models;
+
+using CommunityToolkit.Mvvm.Input;
+
+using BT = BencodeNET.Torrents;
 
 namespace bittorrent.ViewModels;
 
@@ -22,7 +27,7 @@ public partial class TorrentLibraryViewModel : ViewModelBase
     public ObservableCollection<TorrentTaskViewModel> Torrents { get; } = new();
     public FileDialogInteraction SelectFiles { get; } = new();
 
-    private ConnectionListener _listener = new(Config.Get().DefaultPort);
+    private readonly ConnectionListener _listener = new(Config.Get().DefaultPort);
 
     public TorrentLibraryViewModel()
     {
@@ -34,7 +39,8 @@ public partial class TorrentLibraryViewModel : ViewModelBase
     {
         var files = await SelectFiles.Handle();
         var parser = new BencodeParser();
-        foreach (var file in files) {
+        foreach (var file in files)
+        {
             var metainfo = parser.Parse<BT.Torrent>(file.Path.LocalPath);
             Torrents.Add(new TorrentTaskViewModel(metainfo));
         }
