@@ -143,8 +143,8 @@ public class PeerConnection
             }
             _ctrlChannel.Writer.TryWrite(new CloseConnection(Peer, [.. _piecesToDownload, .. toDownload]));
         }
-        _piecesToDownload.Clear();
         catch {} // Do nothing if it's not possible to write
+        _piecesToDownload.Clear();
         PeerChannel.Writer.TryComplete();
         _cancellation.Cancel();
     }
