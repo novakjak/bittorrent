@@ -25,36 +25,38 @@ namespace bittorrent.Models;
 public class TorrentTask
 {
     public BT.Torrent Torrent { get; }
-    public byte[] HashId { get => Torrent.OriginalInfoHashBytes; }
+    public byte[] HashId => Torrent.OriginalInfoHashBytes;
     public int PeerCount => _connections.Count();
+    public Channel<IPeerCtrlMsg> CtrlChannel { get; } = Channel.CreateUnbounded<IPeerCtrlMsg>();
     public int Uploaded { get; private set; } = 0;
     public int Downloaded { get; internal set; } = 0;
     public int DownloadedValid { get; internal set; } = 0;
     public string PeerId { get; private set; } = Util.GenerateRandomString(20);
+    public BitArray DownloadedPieces { get; private set; }
+    public bool IsCompleted => DownloadedPieces.HasAllSet();
 
     public event EventHandler<(int pieceIdx, double completion)>? DownloadedPiece;
     public event EventHandler<int>? PeerCountChanged;
 
     private Task? _thread;
     private readonly List<PeerConnection> _connections = new();
-    private readonly Channel<IPeerCtrlMsg> _mainCtrlChannel;
-    internal BitArray _downloadedPieces;
     internal Dictionary<int, List<Data.Chunk>> _downloadingPieces = new();
     internal PieceStorage _storage;
     internal CancellationTokenSource _cancellation = new();
-
-    private static readonly HttpClient client = new();
+    private TrackerAnnouncer _announcer;
 
     public TorrentTask(BT.Torrent torrent)
     {
         Torrent = torrent;
-        _downloadedPieces = new BitArray(Torrent.NumberOfPieces);
-        _mainCtrlChannel = Channel.CreateUnbounded<IPeerCtrlMsg>();
+        DownloadedPieces = new BitArray(Torrent.NumberOfPieces);
         _storage = new PieceStorage(torrent);
+        _announcer = new TrackerAnnouncer(this);
+        _announcer.ReceivedPeers += (_, peers) => AddPeers(peers);
     }
 
     public void Start()
     {
+        _announcer.Start();
         _thread ??= Task
             .Run(this.ManagePeers, _cancellation.Token)
             .ContinueWith(LogException);
@@ -62,6 +64,7 @@ public class TorrentTask
 
     public async Task Stop()
     {
+        await _announcer.Stop();
         _thread = null;
         foreach (var conn in _connections)
             await conn.PeerChannel.Writer.WriteAsync(new FinishConnection(), _cancellation.Token);
@@ -78,8 +81,8 @@ public class TorrentTask
             var peerId = Encoding.ASCII.GetBytes(PeerId);
             var peerTokenSource = new CancellationTokenSource();
             await PeerConnection.CreateAndFinishHandshakeAsync(
-                conn, peer, Torrent, peerId, _mainCtrlChannel,
-                peerChannel, _downloadedPieces, peerTokenSource);
+                conn, peer, Torrent, peerId, CtrlChannel,
+                peerChannel, DownloadedPieces, peerTokenSource);
         }).ContinueWith(LogException);
     }
 
@@ -88,10 +91,8 @@ public class TorrentTask
 
     private async Task ManagePeers()
     {
-        await Announce();
-
         // Main control loop
-        var rx = _mainCtrlChannel.Reader;
+        var rx = CtrlChannel.Reader;
         while (await rx.WaitToReadAsync(_cancellation.Token))
         {
             try
@@ -121,7 +122,7 @@ public class TorrentTask
         var availableToDownload = new BitArray(peerHas);
 
         // Enumerate all pieces that have yet not been fully downloaded.
-        var notDownloaded = new BitArray(_downloadedPieces);
+        var notDownloaded = new BitArray(DownloadedPieces);
         notDownloaded.Not();
         availableToDownload.And(notDownloaded);
 
@@ -146,52 +147,16 @@ public class TorrentTask
         return pieces.Take(count);
     }
 
-    private async Task Announce()
+    private void AddPeers(IEnumerable<Peer> peers)
     {
-        // TODO: use more trackers
-        var peerId = Encoding.ASCII.GetBytes(PeerId);
-        var tracker = Torrent.Trackers[0][0];
-        var urlencoded = System.Web.HttpUtility.UrlEncode(Torrent.OriginalInfoHashBytes);
-        var query = $"info_hash={urlencoded}";
-        query += $"&peer_id={PeerId}";
-        query += $"&port=8085";
-        query += $"&downloaded={Downloaded}";
-        query += $"&uploaded={Uploaded}";
-        query += $"&left={Torrent.TotalSize - DownloadedValid}";
-
-        var message = new HttpRequestMessage(HttpMethod.Get, $"{tracker}?{query}");
-
-        BDictionary body;
-        try
-        {
-            using var response = await client.SendAsync(message, _cancellation.Token);
-            var parser = new BencodeParser();
-            body = parser.Parse<BDictionary>(await response.Content.ReadAsStreamAsync(_cancellation.Token));
-            BString failure;
-            if ((failure = body.Get<BString>(new BString("failure reason"))) is not null)
-            {
-                Logger.Error($"Communication with tracker failed: {failure.ToString()}");
-                return;
-            }
-            if (!response.IsSuccessStatusCode)
-            {
-                Logger.Error("Could not get peers from tracker");
-                return;
-            }
-        }
-        catch (Exception e)
-        {
-            Logger.Warn(e.Message);
-            return;
-        }
-        foreach (var peer in ParsePeers(body["peers"]))
+        foreach (var peer in peers)
         {
             var peerChannel = Channel.CreateUnbounded<ITaskCtrlMsg>();
             var peerTokenSource = new CancellationTokenSource();
             _ = Task.Run(async () => await PeerConnection.CreateAsync(
-                peer, Torrent, peerId,
-                _mainCtrlChannel, peerChannel,
-                _downloadedPieces, peerTokenSource
+                peer, Torrent, Encoding.UTF8.GetBytes(PeerId),
+                CtrlChannel, peerChannel,
+                DownloadedPieces, peerTokenSource
             ));
         }
     }
@@ -200,10 +165,11 @@ public class TorrentTask
     {
         var args = (piece.Idx, (double)DownloadedValid / (double)Torrent.TotalSize);
         DownloadedPiece?.Invoke(this, args);
-        _downloadedPieces[(int)piece.Idx] = true;
+        DownloadedPieces[(int)piece.Idx] = true;
 
         foreach (var conn in _connections)
-            await conn.PeerChannel.Writer.WriteAsync(new HavePiece(piece.Idx), _cancellation.Token);
+            await conn.PeerChannel.Writer
+                .WriteAsync(new HavePiece(piece.Idx), _cancellation.Token);
     }
 
     private static async Task LogException(Task task)
@@ -216,53 +182,11 @@ public class TorrentTask
         await task;
     }
 
-    private static IEnumerable<Peer> ParsePeers(IBObject peers)
-    {
-        if (peers is BString s)
-            return ParsePeers(s);
-        if (peers is BList l)
-            return ParsePeers(l);
-        throw new ParseException("Peers object must be either a dictionary or a list.");
-    }
-
-    private static IEnumerable<Peer> ParsePeers(BString peers)
-    {
-        var res = new List<Peer>();
-        var buf = peers.Value;
-        for (int i = 0; i < peers.Length / 6; i++)
-        {
-            var addr = new IPAddress(buf.Slice(i * 6, 4).ToArray());
-            var port = (int)(UInt16)IPAddress.NetworkToHostOrder(
-                BitConverter.ToInt16(buf.Slice(i * 6 + 4, 2).ToArray(), 0)
-            );
-            res.Add(new Peer(addr, port, null));
-        }
-        return res;
-    }
-
-    private static IEnumerable<Peer> ParsePeers(BList peersList)
-    {
-        if (peersList is null) return new List<Peer>();
-
-        List<Peer> peers = new();
-        foreach (var peerDict in peersList.Value)
-        {
-            if (peerDict is not BDictionary peer)
-                continue;
-            var ip = new IPAddress(peer.Get<BString>("ip").Value.ToArray());
-            var port = (int)peer.Get<BNumber>("port").Value;
-            var id = peer.Get<BString>("id").Value.ToArray();
-            peers.Add(new Peer(ip, port, id));
-        }
-        return peers;
-    }
-
     ~TorrentTask()
     {
         Logger.Debug("Disposed task");
         _cancellation.Cancel();
-        client.Dispose();
-        _mainCtrlChannel.Writer.TryComplete();
+        CtrlChannel.Writer.TryComplete();
         _thread?.Dispose();
     }
 }
@@ -286,7 +210,7 @@ file static class CtrlMessageExtensions
     {
         var conn = connections.First(c => c.Peer == msg.Peer);
         var request = msg.Request;
-        if (request.Idx >= task._downloadedPieces.Count || !task._downloadedPieces[(int)request.Idx])
+        if (request.Idx >= task.DownloadedPieces.Count || !task.DownloadedPieces[(int)request.Idx])
             return;
         var piece = await task._storage.GetPieceAsync((int)request.Idx);
         var buf = new byte[request.Length];
@@ -296,7 +220,7 @@ file static class CtrlMessageExtensions
     }
     internal static async Task Handle(this DownloadedChunk msg, TorrentTask task, List<PeerConnection> connections)
     {
-        if (task._downloadedPieces[(int)msg.Chunk.Idx])
+        if (task.DownloadedPieces[(int)msg.Chunk.Idx])
             return;
         if (!task._downloadingPieces.ContainsKey((int)msg.Chunk.Idx))
             task._downloadingPieces.Add((int)msg.Chunk.Idx, new List<Data.Chunk>());
