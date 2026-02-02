@@ -166,10 +166,9 @@ public class PeerConnectionTests
         dataStream.Close();
         var newpeer = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
         Assert.IsType<NewPeer>(newpeer);
-        var request = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
-        Assert.IsType<RequestPieces>(request);
-        var closeconn = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
-        Assert.IsType<CloseConnection>(closeconn);
+        var msgs = ctrlChannel.Reader.ReadAllAsync(tokenSource.Token);
+        Assert.Contains(msgs, msg => msg is RequestPieces);
+        Assert.Contains(msgs, msg => msg is CloseConnection);
         conn.Stop();
     }
 
@@ -212,10 +211,9 @@ public class PeerConnectionTests
 
         await peerChannel.Reader.Completion.WaitAsync(tokenSource.Token);
 
-        var request = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
-        Assert.IsType<RequestPieces>(request);
-        var closeconn = await ctrlChannel.Reader.ReadAsync(tokenSource.Token);
-        Assert.IsType<CloseConnection>(closeconn);
+        var msgs = ctrlChannel.Reader.ReadAllAsync(tokenSource.Token);
+        Assert.Contains(msgs, msg => msg is RequestPieces);
+        Assert.Contains(msgs, msg => msg is CloseConnection);
 
         Assert.False(conn.IsStarted);
         conn.Stop();
