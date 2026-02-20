@@ -3,3 +3,6 @@ obj/
 *.torrent
 *.mkv
 *.log
+
+*.zip
+*.tar.gz
