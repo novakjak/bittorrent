@@ -19,7 +19,8 @@ namespace bittorrent.Models;
 
 public class TrackerAnnouncer
 {
-    public const int DEFAULT_TIMEOUT = 3 * 60 * 1000;
+    public const int DEFAULT_TIMEOUT = 15 * 60 * 1000;
+    public const int DEFAULT_MIN_TIMEOUT = 3 * 60 * 1000;
 
     public TorrentTask Task { get; set; }
 
@@ -31,12 +32,16 @@ public class TrackerAnnouncer
     private readonly CancellationTokenSource _cancellation = new();
     private readonly HttpClient client = new();
     private long? _interval = null;
+    private long? _minInterval = null;
     private bool _sentStarted = false;
     private bool _sentCompleted = false;
+    private bool _usingMinTimeout = false;
+    private DateTime _lastAnnounce = DateTime.UnixEpoch;
 
     public TrackerAnnouncer(TorrentTask task)
     {
         Task = task;
+        Task.PeerCountChanged += (_, _) => ReconfigureTimer();
         _timer = new Timer(async (_) => await Announce(), null, Timeout.Infinite, _interval ?? DEFAULT_TIMEOUT);
     }
 
@@ -55,9 +60,10 @@ public class TrackerAnnouncer
         }
         _timer.Change(Timeout.Infinite, Timeout.Infinite);
     }
- 
+
     private async Task Announce()
     {
+        _lastAnnounce = DateTime.Now;
         var query = BuildQuery();
         if (_usedTracker is not null)
         {
@@ -98,7 +104,8 @@ public class TrackerAnnouncer
                 Logger.Error($"Communication with tracker failed: {failure.ToString()}");
                 return false;
             }
-            // TODO: handle min interval as well
+            BNumber? minInterval = body.Get<BNumber>("min interval");
+            _minInterval ??= minInterval?.Value * 1000;
             BNumber? newInterval = body.Get<BNumber>("interval");
             if (_interval is null && newInterval is null)
             {
@@ -108,7 +115,7 @@ public class TrackerAnnouncer
             else if (newInterval is not null)
             {
                 _interval = newInterval.Value * 1000;
-                _timer.Change((int)_interval, (int)_interval);
+                ReconfigureTimer();
             }
             BString? trackerId = body.Get<BString>("tracker id");
             if (trackerId is not null)
@@ -123,6 +130,23 @@ public class TrackerAnnouncer
         {
             Logger.Error(e.Message);
             return false;
+        }
+    }
+ 
+    private void ReconfigureTimer()
+    {
+        long millisSinceAnnounce = DateTime.Now.Subtract(_lastAnnounce).Milliseconds;
+        if (Task.PeerCount > 20 && _usingMinTimeout)
+        {
+            var timeout = Math.Max((_interval ?? 0) - millisSinceAnnounce, 0);
+            _timer.Change(timeout, _interval ?? DEFAULT_TIMEOUT);
+            _usingMinTimeout = false;
+        }
+        else if (Task.PeerCount <= 20 && !_usingMinTimeout && !Task.IsCompleted)
+        {
+            var timeout = Math.Max((_minInterval ?? 0) - millisSinceAnnounce, 0);
+            _timer.Change(timeout, _minInterval ?? DEFAULT_MIN_TIMEOUT);
+            _usingMinTimeout = true;
         }
     }
 
