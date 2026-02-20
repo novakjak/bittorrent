@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-using bittorrent.Core;
+using BitAvalanche.Core;
 
 namespace test.Models;
 

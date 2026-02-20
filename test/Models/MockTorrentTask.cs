@@ -6,8 +6,8 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using BT = BencodeNET.Torrents;
 
-using bittorrent.Core;
-using bittorrent.Models;
+using BitAvalanche.Core;
+using BitAvalanche.Models;
 
 namespace test.Models;
 

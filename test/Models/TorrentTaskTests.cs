@@ -10,12 +10,12 @@ using System.Threading.Tasks;
 using BencodeNET.Parsing;
 using BencodeNET.Torrents;
 
-using bittorrent.Core;
-using bittorrent.Models;
+using BitAvalanche.Core;
+using BitAvalanche.Models;
 
 using Moq;
 
-using Data = bittorrent.Core.Data;
+using Data = BitAvalanche.Core.Data;
 
 namespace test.Models;
 

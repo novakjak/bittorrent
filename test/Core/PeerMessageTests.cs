@@ -1,6 +1,6 @@
 using System.Collections;
 
-using bittorrent.Core;
+using BitAvalanche.Core;
 
 namespace test.Core;
 

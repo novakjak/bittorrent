@@ -1,4 +1,4 @@
-using bittorrent.Core;
+using BitAvalanche.Core;
 
 namespace Core;
 

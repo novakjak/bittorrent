@@ -1,6 +1,6 @@
 namespace test.Core.Data;
 
-using bittorrent.Core.Data;
+using BitAvalanche.Core.Data;
 
 public class PieceTests
 {
