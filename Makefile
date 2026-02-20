@@ -12,7 +12,12 @@ package-win:
 
 package-linux:
 	dotnet publish -c Release -r linux-x64 --self-contained true
-	tar czvf BitAvalanche-linux.tar.gz BitAvalanche/bin/Release/net9.0/linux-x64/publish
+
+	mkdir -p out
+	cd out; mv ../BitAvalanche/bin/Release/net9.0/linux-x64/publish BitAvalanche
+	cd out; tar czf BitAvalanche-linux.tar.gz BitAvalanche
+	cd out; mv BitAvalanche-linux.tar.gz ..
+	rm -r out
 
 clean:
 	dotnet clean
