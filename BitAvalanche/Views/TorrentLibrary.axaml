@@ -7,6 +7,7 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="BitAvalanche.Views.TorrentLibrary"
         x:DataType="vm:TorrentLibraryViewModel"
+        Name="Library"
         Icon="/Assets/avalonia-logo.ico"
         Title="BitAvalanche"
         ClientSize="800,450">
@@ -57,6 +58,23 @@
           <views:TorrentShortInfoView />
         </DataTemplate>
       </ListBox.ItemTemplate>
+      <ListBox.Styles>
+        <Style Selector="ListBoxItem">
+          <Setter Property="ContextMenu">
+            <ContextMenu x:DataType="vm:TorrentTaskViewModel">
+              <MenuItem Header="Start"
+                        Command="{Binding Start}" />
+              <MenuItem Header="Pause"
+                        Command="{Binding Stop}" />
+              <MenuItem Header="Remove"
+                        Command="{Binding #Library.DataContext.RemoveTorrent}"
+                        CommandParameter="{Binding}" />
+              <MenuItem Header="Show location on disk"
+                        Command="{Binding ShowLocationOnDisk}" />
+            </ContextMenu>
+          </Setter>
+        </Style>
+      </ListBox.Styles>
     </ListBox>
 
   </DockPanel>

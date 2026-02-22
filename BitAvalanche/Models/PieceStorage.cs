@@ -28,6 +28,12 @@ public sealed class PieceStorage
             CreateFiles(Torrent.Files);
     }
 
+    public String GetPath()
+    {
+        var file = Torrent.File is not null ? _file! : _files![0];
+        return Path.GetDirectoryName(file.Name)!;
+    }
+
     public async Task StorePieceAsync(Data.Piece piece)
     {
         if (Torrent.File is not null)
@@ -94,7 +100,7 @@ public sealed class PieceStorage
         FileStream file;
         try
         {
-            file = File.Open(fileInfo.FileName, FileMode.OpenOrCreate);
+            file = File.Open(fileInfo.FileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
             if (file.Length < fileInfo.FileSize)
             {
                 file.SetLength(fileInfo.FileSize);
@@ -154,7 +160,7 @@ public sealed class PieceStorage
     {
         foreach (var fileInfo in Torrent.Files)
         {
-            var file = File.Open(fileInfo.FileName, FileMode.OpenOrCreate);
+            var file = File.Open(fileInfo.FileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
             if (file.Length < fileInfo.FileSize)
             {
                 file.SetLength(fileInfo.FileSize);

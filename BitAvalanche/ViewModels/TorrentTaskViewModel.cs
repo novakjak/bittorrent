@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 using BitAvalanche.Models;
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 using BT = BencodeNET.Torrents;
 
@@ -27,6 +29,18 @@ public partial class TorrentTaskViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _uploaded = 0;
+
+    public void Start() => Task.Start();
+    public async void Stop() => await Task.Stop();
+    public void ShowLocationOnDisk()
+    {
+        var path = Task.Path;
+        Logger.Debug(path);
+        using var p = new Process();
+        p.StartInfo.FileName = path;
+        p.StartInfo.UseShellExecute = true;
+        p.Start();
+    }
 
     public TorrentTask Task { get; private set; }
 

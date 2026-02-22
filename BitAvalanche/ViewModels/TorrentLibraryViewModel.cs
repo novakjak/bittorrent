@@ -46,6 +46,10 @@ public partial class TorrentLibraryViewModel : ViewModelBase
         }
     }
 
+    [RelayCommand]
+    public async Task RemoveTorrent(TorrentTaskViewModel torrent)
+        => Torrents.Remove(torrent);
+
     private void HandleNewPeer(object? sender, (INetworkClient client, Peer peer, byte[] infoHash) args)
     {
         var taskVM = Torrents.First(t => t.InfoHash == args.infoHash);
