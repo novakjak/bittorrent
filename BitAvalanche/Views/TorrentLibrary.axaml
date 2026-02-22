@@ -8,7 +8,8 @@
         x:Class="BitAvalanche.Views.TorrentLibrary"
         x:DataType="vm:TorrentLibraryViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="BitAvalanche">
+        Title="BitAvalanche"
+        ClientSize="800,450">
 
   <Design.DataContext>
     <!-- This only sets the DataContext for the previewer in an IDE,
@@ -33,15 +34,18 @@
     </Grid>
 
     <Expander DockPanel.Dock="Bottom" ExpandDirection="Up" HorizontalAlignment="Stretch">
+      <Expander.Header>
+        Additional Info
+      </Expander.Header>
       <views:TorrentLongInfoView DataContext="{Binding #Torrents.SelectedItem}" />
     </Expander>
 
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="4*,3*,1*,1*,1*">
-      <TextBlock Grid.Column="0" Text="Name" />
-      <TextBlock Grid.Column="1" Text="Progress" />
-      <TextBlock Grid.Column="2" Text="Peers" />
-      <TextBlock Grid.Column="3" Text="Downloaded" />
-      <TextBlock Grid.Column="4" Text="Uploaded" />
+    <Grid ColumnDefinitions="3*,3*,*,*,*" Name="Header" DockPanel.Dock="Top" Margin="12 0">
+      <TextBlock Grid.Column="0" HorizontalAlignment="Stretch" Text="Name" />
+      <TextBlock Grid.Column="1" HorizontalAlignment="Stretch" Text="Progress" />
+      <TextBlock Grid.Column="2" HorizontalAlignment="Stretch" TextAlignment="End" Text="Peers" />
+      <TextBlock Grid.Column="3" HorizontalAlignment="Stretch" TextAlignment="End" Text="Downloaded" />
+      <TextBlock Grid.Column="4" HorizontalAlignment="Stretch" TextAlignment="End" Text="Uploaded" />
     </Grid>
 
     <ListBox DockPanel.Dock="Top"

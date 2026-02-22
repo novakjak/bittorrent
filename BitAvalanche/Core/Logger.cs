@@ -94,7 +94,7 @@ public sealed class Logger
             if (!first)
                 msg.Append(", ");
             first = false;
-            msg.Append(obj.ToString());
+            msg.Append(obj?.ToString() ?? "null");
         }
         Logger.Debug(msg.ToString(), member, ln);
     }
