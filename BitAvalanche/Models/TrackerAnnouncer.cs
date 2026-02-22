@@ -148,6 +148,13 @@ public class TrackerAnnouncer
             _timer.Change(timeout, _minInterval ?? DEFAULT_MIN_TIMEOUT);
             _usingMinTimeout = true;
         }
+        else
+        {
+            var default_interval = _usingMinTimeout ? DEFAULT_MIN_TIMEOUT : DEFAULT_TIMEOUT;
+            var interval = (_usingMinTimeout ? _minInterval : _interval) ?? default_interval;
+            var timeout = Math.Max(interval - millisSinceAnnounce, 0);
+            _timer.Change(timeout, interval);
+        }
     }
 
     private string BuildBaseQuery()

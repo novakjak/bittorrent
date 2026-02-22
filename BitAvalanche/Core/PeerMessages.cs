@@ -235,7 +235,7 @@ public class Cancel(UInt32 idx, UInt32 begin, UInt32 length) : IPeerMessage, IEq
 // to be sent during already established communication.
 public class Handshake
 {
-    public static string DefaultProtocol = "BitAvalanche protocol";
+    public static string DefaultProtocol = "BitTorrent protocol";
     public static int MessageLength = 49 + DefaultProtocol.Length;
 
     public string ProtocolName { get; set; }
