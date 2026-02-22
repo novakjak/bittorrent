@@ -29,7 +29,7 @@ public class TrackerAnnouncer
     private string? _usedTracker;
     private byte[]? _trackerId;
     private Timer _timer;
-    private readonly CancellationTokenSource _cancellation = new();
+    private CancellationTokenSource _cancellation = new();
     private readonly HttpClient client = new();
     private long? _interval = null;
     private long? _minInterval = null;
@@ -47,6 +47,7 @@ public class TrackerAnnouncer
 
     public void Start()
     {
+        _cancellation = new CancellationTokenSource();
         _timer.Change(0, _interval ?? DEFAULT_TIMEOUT);
     }
 

@@ -6,7 +6,9 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="BitAvalanche.Views.TorrentShortInfoView"
-             x:DataType="vm:TorrentTaskViewModel">
+             x:DataType="vm:TorrentTaskViewModel"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch">
 
   <UserControl.Styles>
     <Style Selector="ProgressBar">

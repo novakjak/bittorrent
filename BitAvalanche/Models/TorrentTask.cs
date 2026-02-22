@@ -52,6 +52,7 @@ public class TorrentTask : ITorrentTask
     public int DownloadedValid { get; internal set; } = 0;
     public BitArray DownloadedPieces { get; private set; }
     public bool IsCompleted => DownloadedPieces.HasAllSet();
+    public string Path => _storage.GetPath();
 
     public event EventHandler<(int pieceIdx, double completion)>? DownloadedPiece;
     public event EventHandler<int>? PeerCountChanged;
@@ -74,9 +75,10 @@ public class TorrentTask : ITorrentTask
 
     public void Start()
     {
+        _cancellation = new CancellationTokenSource();
         _announcer.Start();
         _thread ??= Task
-            .Run(this.ManagePeers, _cancellation.Token)
+            .Run(ManagePeers, _cancellation.Token)
             .ContinueWith(LogException);
     }
 
@@ -181,8 +183,15 @@ public class TorrentTask : ITorrentTask
         DownloadedPieces[(int)piece.Idx] = true;
 
         foreach (var conn in _connections)
-            await conn.PeerChannel.Writer
-                .WriteAsync(new HavePiece(piece.Idx), _cancellation.Token);
+        {
+            try
+            {
+                await conn.PeerChannel.Writer
+                    .WriteAsync(new HavePiece(piece.Idx), _cancellation.Token);
+            }
+            catch
+            { }
+        }
     }
 
     private static async Task LogException(Task task)
@@ -214,12 +223,16 @@ file static class CtrlMessageExtensions
     }
     internal static async Task Handle(this RequestPieces msg, TorrentTask task, List<PeerConnection> connections)
     {
-        var conn = connections.First(c => c.Peer == msg.Peer);
+        var conn = connections.FirstOrDefault(c => c?.Peer == msg.Peer, null);
+        if (conn is null)
+            return;
         await task.SupplyPiecesToPeer(conn, msg.Count);
     }
     internal static async Task Handle(this RequestChunk msg, TorrentTask task, List<PeerConnection> connections)
     {
-        var conn = connections.First(c => c.Peer == msg.Peer);
+        var conn = connections.FirstOrDefault(c => c?.Peer == msg.Peer, null);
+        if (conn is null)
+            return;
         var request = msg.Request;
         if (request.Idx >= task.DownloadedPieces.Count || !task.DownloadedPieces[(int)request.Idx])
             return;
@@ -272,8 +285,6 @@ file static class CtrlMessageExtensions
         task.DownloadedValid += pieceBuf.Length;
 
         await task.AnnounceDownloadedPiece(piece, msg.Peer);
-
-        var peer = connections.First(c => c.Peer == msg.Peer);
     }
     internal static async Task Handle(this CloseConnection msg, TorrentTask task, List<PeerConnection> connections)
     {
