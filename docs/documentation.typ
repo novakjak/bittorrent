@@ -15,6 +15,11 @@
 
 #outline(title: [Obsah])
 
+= BitAvalanche
+
+BitAvalanche je program pro stahování souborů přes internet pomocí BitTorrent protokolu.
+
+
 #pagebreak()
 
 = Instalace a spuštění
@@ -69,4 +74,43 @@
 #figure(
     image("additional_info_open.png"),
     caption: [Rozbalená nabídka dodatečných informací.],
+)
+
+#pagebreak()
+
+= Přerušení stahování
+
++ Klikněte pravým tlačítkem myši na torrent.
++ Vyberte možnost _Pause_.
++ Torrent se nyní přestane stahovat.
++ Pro opětovné pokračování ve stahování:
+  + Klikněte pravým tlačítkem myši na torrent.
+  + Vyberte možnost _Start_.
+
+#figure(
+    image("pause_torrent.png"),
+    caption: [Možnost v kontextovém menu pro přerušení stahování.],
+)
+
+#figure(
+    image("start_torrent.png"),
+    caption: [Možnost v kontextovém menu pro pokračování ve stahování.],
+)
+
+#pagebreak()
+
+= Zrušení stahování
+
++ Klikněte pravým tlačítkem myši na torrent.
++ Vyberte možnost _Remove_.
++ Nyní se torrent odebere z přehledu.
+
+#figure(
+    image("remove_torrent.png"),
+    caption: [Možnost v kontextovém menu pro odebrání torrentu.],
+)
+
+#figure(
+    image("after_removing.png"),
+    caption: [Prázdný přehled.],
 )
