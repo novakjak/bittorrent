@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -82,6 +84,20 @@ public sealed class Logger
 
     public static void Debug(string message, [CallerMemberName] string member = "", [CallerLineNumber] int ln = 0)
         => Logger.Log(LogLevel.Info, message, member, ln);
+    public static void DebugIter<T>(IEnumerable<T> arr, [CallerMemberName] string member = "", [CallerLineNumber] int ln = 0)
+    {
+        StringBuilder msg = new();
+        msg.Append("[");
+        var first = true;
+        foreach (var obj in arr)
+        {
+            if (!first)
+                msg.Append(", ");
+            first = false;
+            msg.Append(obj.ToString());
+        }
+        Logger.Debug(msg.ToString(), member, ln);
+    }
     public static void Info(string message, [CallerMemberName] string member = "", [CallerLineNumber] int ln = 0)
         => Logger.Log(LogLevel.Info, message, member, ln);
     public static void Warn(string message, [CallerMemberName] string member = "", [CallerLineNumber] int ln = 0)
