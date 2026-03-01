@@ -64,11 +64,11 @@ public class TorrentTask : ITorrentTask
     internal CancellationTokenSource _cancellation = new();
     private TrackerAnnouncer _announcer;
 
-    public TorrentTask(BT.Torrent torrent)
+    public TorrentTask(BT.Torrent torrent, string saveLocation)
     {
         Torrent = torrent;
         DownloadedPieces = new BitArray(Torrent.NumberOfPieces);
-        _storage = new PieceStorage(torrent);
+        _storage = new PieceStorage(torrent, saveLocation);
         _announcer = new TrackerAnnouncer(this);
         _announcer.ReceivedPeers += (_, peers) => AddPeers(peers);
     }

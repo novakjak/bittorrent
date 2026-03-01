@@ -1,0 +1,29 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:vm="using:BitAvalanche.ViewModels"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="BitAvalanche.Views.AddTorrentDialog"
+        x:DataType="vm:AddTorrentDialogViewModel"
+        Title="Add new torrent"
+        ClientSize="800,450">
+  <DockPanel>
+    <WrapPanel DockPanel.Dock="Top">
+      <TextBlock>Save location: </TextBlock>
+      <TextBlock Text="{Binding SaveLocation.Name}" />
+      <Button Content="Change save location" Click="ChangeSaveLocation" />
+    </WrapPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Add" Click="Confirm" />
+      <Button Content="Cancel" Click="CloseDialog" />
+    </StackPanel>
+    <TreeView ItemsSource="{Binding Files}">
+      <TreeView.ItemTemplate>
+        <TreeDataTemplate ItemsSource="{Binding Children}">
+          <TextBlock Text="{Binding Name}" />
+        </TreeDataTemplate>
+      </TreeView.ItemTemplate>
+    </TreeView>
+  </DockPanel>
+</Window>

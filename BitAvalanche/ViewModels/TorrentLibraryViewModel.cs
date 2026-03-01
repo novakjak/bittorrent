@@ -11,8 +11,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 
-using BencodeNET.Parsing;
-
 using BitAvalanche.Core;
 using BitAvalanche.Models;
 
@@ -25,7 +23,6 @@ namespace BitAvalanche.ViewModels;
 public partial class TorrentLibraryViewModel : ViewModelBase
 {
     public ObservableCollection<TorrentTaskViewModel> Torrents { get; } = new();
-    public FileDialogInteraction SelectFiles { get; } = new();
 
     private readonly ConnectionListener _listener = new(Config.Get().DefaultPort);
 
@@ -34,17 +31,8 @@ public partial class TorrentLibraryViewModel : ViewModelBase
         _listener.Start();
     }
 
-    [RelayCommand]
-    public async Task AddTorrentCommand()
-    {
-        var files = await SelectFiles.Handle();
-        var parser = new BencodeParser();
-        foreach (var file in files)
-        {
-            var metainfo = parser.Parse<BT.Torrent>(file.Path.LocalPath);
-            Torrents.Add(new TorrentTaskViewModel(metainfo));
-        }
-    }
+    public void AddTorrent(BT.Torrent metainfo, string saveLocation)
+        => Torrents.Add(new TorrentTaskViewModel(metainfo, saveLocation));
 
     [RelayCommand]
     public async Task RemoveTorrent(TorrentTaskViewModel torrent)
