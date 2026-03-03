@@ -8,17 +8,39 @@
         x:DataType="vm:AddTorrentDialogViewModel"
         Title="Add new torrent"
         ClientSize="800,450">
+  <Window.Styles>
+    <Style Selector="Window > DockPanel">
+      <Setter Property="Margin" Value="10" />
+    </Style>
+    <Style Selector="TextBlock">
+      <Setter Property="Margin" Value="0 0 10 0" />
+    </Style>
+    <Style Selector="DockPanel > DockPanel > TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Rectangle.divider">
+      <Setter Property="Margin" Value="0 10" />
+      <Setter Property="Height" Value="2" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Fill" Value="Black" />
+    </Style>
+    <Style Selector="Label#FileLabel">
+      <Setter Property="FontSize" Value="18" />
+    </Style>
+  </Window.Styles>
   <DockPanel>
-    <WrapPanel DockPanel.Dock="Top">
-      <TextBlock>Save location: </TextBlock>
+    <DockPanel DockPanel.Dock="Top">
+      <TextBlock DockPanel.Dock="Left">Save location:</TextBlock>
+      <Button DockPanel.Dock="Right" Content="Change save location" Click="ChangeSaveLocation" />
       <TextBlock Text="{Binding SaveLocation.Name}" />
-      <Button Content="Change save location" Click="ChangeSaveLocation" />
-    </WrapPanel>
+    </DockPanel>
+    <Rectangle DockPanel.Dock="Top" Classes="divider" />
+    <Label Name="FileLabel" DockPanel.Dock="Top" Target="Files">File preview:</Label>
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right">
       <Button Content="Add" Click="Confirm" />
       <Button Content="Cancel" Click="CloseDialog" />
     </StackPanel>
-    <TreeView ItemsSource="{Binding Files}">
+    <TreeView Name="Files" ItemsSource="{Binding Files}">
       <TreeView.ItemTemplate>
         <TreeDataTemplate ItemsSource="{Binding Children}">
           <TextBlock Text="{Binding Name}" />

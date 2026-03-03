@@ -50,10 +50,12 @@ public partial class TorrentLibrary : Window
             if (closed)
                 continue;
             var confirmed = await window.ShowDialog<bool>(this);
+            if (!confirmed)
+                continue;
             var ctx = (TorrentLibraryViewModel)DataContext!;
             if (vm.MetaInfo is null)
                 continue;
-            ctx.AddTorrent(vm.MetaInfo, vm.SaveLocation.Path.AbsolutePath);
+            ctx.AddTorrent(vm.MetaInfo, vm.SaveLocation!.Path.AbsolutePath);
         }
     }
 }
