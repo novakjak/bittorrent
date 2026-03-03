@@ -35,7 +35,6 @@ public partial class TorrentTaskViewModel : ViewModelBase
     public void ShowLocationOnDisk()
     {
         var path = Task.Path;
-        Logger.Debug(path);
         using var p = new Process();
         p.StartInfo.FileName = path;
         p.StartInfo.UseShellExecute = true;
@@ -44,11 +43,11 @@ public partial class TorrentTaskViewModel : ViewModelBase
 
     public TorrentTask Task { get; private set; }
 
-    public TorrentTaskViewModel(BT.Torrent t)
+    public TorrentTaskViewModel(BT.Torrent t, string saveLocation)
     {
         Name = t.DisplayName;
         InfoHash = t.OriginalInfoHashBytes;
-        Task = new TorrentTask(t);
+        Task = new TorrentTask(t, saveLocation);
         Task.DownloadedPiece += HandleDownloadedPiece;
         Task.PeerCountChanged += HandlePeerCountChanged;
         Task.Start();

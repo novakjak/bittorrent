@@ -15,13 +15,15 @@ public sealed class PieceStorage
     public Torrent Torrent { get; }
 
     private readonly TorrentFileMode _fileMode;
+    private readonly string _saveLocation;
     private FileStream? _file;
     private readonly List<FileStream>? _files = new();
 
-    public PieceStorage(Torrent torrent)
+    public PieceStorage(Torrent torrent, string saveLocation)
     {
         Torrent = torrent;
         _fileMode = torrent.FileMode;
+        _saveLocation = saveLocation;
         if (Torrent.File is not null)
             CreateFiles(Torrent.File);
         else
@@ -100,7 +102,7 @@ public sealed class PieceStorage
         FileStream file;
         try
         {
-            file = File.Open(fileInfo.FileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
+            file = File.Open(Path.Combine(_saveLocation, fileInfo.FileName), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
             if (file.Length < fileInfo.FileSize)
             {
                 file.SetLength(fileInfo.FileSize);
@@ -160,7 +162,7 @@ public sealed class PieceStorage
     {
         foreach (var fileInfo in Torrent.Files)
         {
-            var file = File.Open(fileInfo.FileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
+            var file = File.Open(Path.Combine(_saveLocation, fileInfo.FileName), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
             if (file.Length < fileInfo.FileSize)
             {
                 file.SetLength(fileInfo.FileSize);

@@ -24,7 +24,7 @@
   <DockPanel x:Name="Root">
     <Grid DockPanel.Dock="Top" ColumnDefinitions='auto, *' Margin="10"
           HorizontalAlignment="Stretch">
-      <Button Command="{Binding AddTorrentCommand}"
+      <Button Click="AddTorrent"
               Grid.Column="1" ToolTip.Tip="Add Torrent">
         <StackPanel Orientation="Horizontal">
           <Svg HorizontalAlignment="Left" Width="15" Height="15"

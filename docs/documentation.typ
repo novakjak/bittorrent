@@ -41,6 +41,8 @@ BitAvalanche je program pro stahování souborů přes internet pomocí BitTorre
 + Na internetu najděte a stáhněte `.torrent` soubor.
 + Klikněte na tlačítko _Add torrent_ v BitAvalanche.
 + Najděte a vyberte stažený `.torrent` soubor.
++ (Volitelné) Změňte složku, do které se torrent stáhne pomocí tlačítka _Change save location_.
++ Potvrďte obsah torrentu pomocí tlačítka _Add_.
 + Vyčkejte než se torrent stáhne.
 
 
@@ -52,6 +54,11 @@ BitAvalanche je program pro stahování souborů přes internet pomocí BitTorre
 #figure(
     image("open_file_dialog.png"),
     caption: [Vybraný soubor `.torrent`.],
+)
+
+#figure(
+    image("add_torrent_preview.png"),
+    caption: [Přehled vybraného torrentu.],
 )
 
 #figure(
