@@ -306,6 +306,9 @@ file static class CtrlMessageExtensions
             case RequestPieces rp:
                 await rp.Handle(task, connections);
                 break;
+            case RequestChunk rc:
+                await rc.Handle(task, connections);
+                break;
             case DownloadedChunk dc:
                 await dc.Handle(task, connections);
                 break;
