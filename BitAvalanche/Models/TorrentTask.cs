@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using System.Runtime.Serialization;
 
 using BencodeNET.Objects;
 using BencodeNET.Parsing;
@@ -40,19 +41,37 @@ public interface ITorrentTask
     public void AddPeer(INetworkClient conn, Peer peer);
 }
 
+[DataContract]
 public class TorrentTask : ITorrentTask
 {
-    public BT.Torrent Torrent { get; }
+    public BT.Torrent Torrent { get; private set; }
+    [DataMember]
+    public int Uploaded { get; internal set; } = 0;
+    [DataMember]
+    public int Downloaded { get; internal set; } = 0;
+    [DataMember]
+    public int DownloadedValid { get; internal set; } = 0;
+    [DataMember]
+    public BitArray DownloadedPieces { get; private set; }
+    [DataMember]
+    public string Path { get; private set; }
+
+    [DataMember]
+    private byte[] _torrentDict
+    {
+        get => Torrent.EncodeAsBytes();
+        set
+        {
+            var parser = new BencodeParser();
+            Torrent = parser.Parse<BT.Torrent>(value);
+        }
+    }
+
     public byte[] HashId => Torrent.OriginalInfoHashBytes;
     public string PeerId { get; private set; } = Util.GenerateRandomString(20);
     public int PeerCount => _connections.Count();
     public Channel<IPeerCtrlMsg> CtrlChannel { get; } = Channel.CreateUnbounded<IPeerCtrlMsg>();
-    public int Uploaded { get; internal set; } = 0;
-    public int Downloaded { get; internal set; } = 0;
-    public int DownloadedValid { get; internal set; } = 0;
-    public BitArray DownloadedPieces { get; private set; }
     public bool IsCompleted => DownloadedPieces.HasAllSet();
-    public string Path => _storage.GetPath();
 
     public event EventHandler<(int pieceIdx, double completion)>? DownloadedPiece;
     public event EventHandler<int>? PeerCountChanged;
@@ -67,6 +86,7 @@ public class TorrentTask : ITorrentTask
     public TorrentTask(BT.Torrent torrent, string saveLocation)
     {
         Torrent = torrent;
+        Path = saveLocation;
         DownloadedPieces = new BitArray(Torrent.NumberOfPieces);
         _storage = new PieceStorage(torrent, saveLocation);
         _announcer = new TrackerAnnouncer(this);

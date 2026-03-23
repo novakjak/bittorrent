@@ -53,6 +53,12 @@ public partial class TorrentTaskViewModel : ViewModelBase
         Task.Start();
     }
 
+    public TorrentTaskViewModel(TorrentTask task)
+    {
+        Task = task;
+        task.Start();
+    }
+
     private void HandleDownloadedPiece(object? sender, (int pieceIdx, double completion) args)
     {
         PercentComplete = args.completion;
