@@ -75,12 +75,12 @@ public partial class App : Application
                 return;
 
             var dcs = new DataContractSerializer(typeof(TorrentTask[]));
-            var loaded = (TorrentTask[])dcs.ReadObject(f);
+            var loaded = (TorrentTask[]?)dcs.ReadObject(f);
             if (loaded is null)
                 return;
             foreach (var t in loaded)
             {
-                t.Populate();
+                // t.Populate();
                 torrents.Add(new TorrentTaskViewModel(t));
             }
         }

@@ -57,7 +57,7 @@ public partial class TorrentLibrary : Window
                 continue;
             try
             {
-                ctx.AddTorrent(vm.Bytes, vm.SaveLocation!.Path.AbsolutePath);
+                ctx.AddTorrent(vm.Bytes!, vm.SaveLocation!.Path.AbsolutePath);
             }
             catch { }
         }
