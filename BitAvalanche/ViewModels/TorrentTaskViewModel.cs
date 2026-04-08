@@ -43,11 +43,15 @@ public partial class TorrentTaskViewModel : ViewModelBase
 
     public TorrentTask Task { get; private set; }
 
-    public TorrentTaskViewModel(BT.Torrent t, string saveLocation)
+    public TorrentTaskViewModel(byte[] metainfoBytes, string saveLocation)
+        : this(new TorrentTask(metainfoBytes, saveLocation))
+    { }
+
+    public TorrentTaskViewModel(TorrentTask task)
     {
-        Name = t.DisplayName;
-        InfoHash = t.OriginalInfoHashBytes;
-        Task = new TorrentTask(t, saveLocation);
+        Task = task;
+        Name = Task.Torrent.DisplayName;
+        InfoHash = Task.Torrent.OriginalInfoHashBytes;
         Task.DownloadedPiece += HandleDownloadedPiece;
         Task.PeerCountChanged += HandlePeerCountChanged;
         Task.Start();

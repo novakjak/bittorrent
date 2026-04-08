@@ -55,7 +55,11 @@ public partial class TorrentLibrary : Window
             var ctx = (TorrentLibraryViewModel)DataContext!;
             if (vm.MetaInfo is null)
                 continue;
-            ctx.AddTorrent(vm.MetaInfo, vm.SaveLocation!.Path.AbsolutePath);
+            try
+            {
+                ctx.AddTorrent(vm.Bytes, vm.SaveLocation!.Path.AbsolutePath);
+            }
+            catch { }
         }
     }
 }

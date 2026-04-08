@@ -20,6 +20,8 @@ public partial class AddTorrentDialogViewModel : ViewModelBase
     [ObservableProperty]
     private BT.Torrent? _metaInfo;
 
+    public byte[]? Bytes { get; private set; }
+
     [ObservableProperty]
     private IStorageFolder? _saveLocation;
 
@@ -35,8 +37,10 @@ public partial class AddTorrentDialogViewModel : ViewModelBase
         try
         {
             var parser = new BencodeParser();
-            var dataStream = await newValue.OpenReadAsync();
-            MetaInfo = parser.Parse<BT.Torrent>(dataStream);
+            using var dataStream = await newValue.OpenReadAsync();
+            Bytes = new byte[dataStream.Length];
+            await dataStream.ReadExactlyAsync(Bytes, 0, (int)dataStream.Length);
+            MetaInfo = parser.Parse<BT.Torrent>(Bytes);
         }
         catch
         {
