@@ -65,29 +65,51 @@ public partial class App : Application
 
     private void OnStartup(object? sender, ControlledApplicationLifetimeStartupEventArgs e)
     {
-        using var f = GetDataFile();
-        if (f.Length == 0)
-            return;
-        var torrents = GetTorrents();
-        if (torrents is null)
-            return;
+        try
+        {
+            using var f = GetDataFile();
+            if (f.Length == 0)
+                return;
+            var torrents = GetTorrents();
+            if (torrents is null)
+                return;
 
-        var dcs = new DataContractSerializer(typeof(TorrentTask[]));
-        var loaded = (TorrentTask[])dcs.ReadObject(f);
-        foreach (var t in loaded)
-            torrents.Add(new TorrentTaskViewModel(t));
+            var dcs = new DataContractSerializer(typeof(TorrentTask[]));
+            var loaded = (TorrentTask[])dcs.ReadObject(f);
+            if (loaded is null)
+                return;
+            foreach (var t in loaded)
+            {
+                t.Populate();
+                torrents.Add(new TorrentTaskViewModel(t));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Could not load saved torrents");
+            Logger.Error(ex.ToString());
+        }
     }
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
-        var torrents = GetTorrents();
-        if (torrents is null)
-            return;
+        try
+        {
+            var torrents = GetTorrents();
+            if (torrents is null)
+                return;
 
-        using var f = GetDataFile();
-        var dcs = new DataContractSerializer(typeof(IEnumerable<TorrentTask>));
-        using var xdw = XmlDictionaryWriter.CreateTextWriter(f, Encoding.UTF8);
-        dcs.WriteObject(xdw, torrents.Select(t => t.Task));
+            using var f = GetDataFile();
+            f.SetLength(0);
+            var dcs = new DataContractSerializer(typeof(TorrentTask[]));
+            using var xdw = XmlDictionaryWriter.CreateTextWriter(f, Encoding.UTF8);
+            dcs.WriteObject(xdw, torrents.Select(t => t.Task).ToArray());
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Could not save torrents");
+            Logger.Error(ex.ToString());
+        }
     }
 
     private ObservableCollection<TorrentTaskViewModel>? GetTorrents()
@@ -114,6 +136,6 @@ public partial class App : Application
     {
         var saveDir = GetSaveDirectory();
         var filePath = Path.Combine(saveDir, SaveDataFile);
-        return File.Open(filePath, FileMode.Create);
+        return File.Open(filePath, FileMode.OpenOrCreate);
     }
 }

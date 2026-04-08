@@ -20,7 +20,7 @@ public sealed class Logger
 
     private Logger()
     {
-        _logFile = File.Open(logFilePath, FileMode.Create);
+        _logFile = File.Open(logFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
         _writer = new StreamWriter(_logFile);
         _instance = this;
     }

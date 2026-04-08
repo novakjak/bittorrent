@@ -31,8 +31,8 @@ public partial class TorrentLibraryViewModel : ViewModelBase
         _listener.Start();
     }
 
-    public void AddTorrent(BT.Torrent metainfo, string saveLocation)
-        => Torrents.Add(new TorrentTaskViewModel(metainfo, saveLocation));
+    public void AddTorrent(byte[] metaInfoBytes, string saveLocation)
+        => Torrents.Add(new TorrentTaskViewModel(metaInfoBytes, saveLocation));
 
     [RelayCommand]
     public async Task RemoveTorrent(TorrentTaskViewModel torrent)

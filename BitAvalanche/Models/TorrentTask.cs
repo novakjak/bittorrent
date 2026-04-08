@@ -44,7 +44,6 @@ public interface ITorrentTask
 [DataContract]
 public class TorrentTask : ITorrentTask
 {
-    public BT.Torrent Torrent { get; private set; }
     [DataMember]
     public int Uploaded { get; internal set; } = 0;
     [DataMember]
@@ -57,40 +56,46 @@ public class TorrentTask : ITorrentTask
     public string Path { get; private set; }
 
     [DataMember]
-    private byte[] _torrentDict
+    public byte[] MetainfoBytes
     {
-        get => Torrent.EncodeAsBytes();
+        get => _metainfoBytes;
         set
         {
+            _metainfoBytes = value;
+            if (value is null)
+            {
+                Torrent = null;
+                return;
+            }
             var parser = new BencodeParser();
             Torrent = parser.Parse<BT.Torrent>(value);
         }
     }
 
+    public BT.Torrent? Torrent { get; private set; }
+    public string PeerId { get; private set; }
+    public Channel<IPeerCtrlMsg> CtrlChannel { get; private set; }
     public byte[] HashId => Torrent.OriginalInfoHashBytes;
-    public string PeerId { get; private set; } = Util.GenerateRandomString(20);
-    public int PeerCount => _connections.Count();
-    public Channel<IPeerCtrlMsg> CtrlChannel { get; } = Channel.CreateUnbounded<IPeerCtrlMsg>();
     public bool IsCompleted => DownloadedPieces.HasAllSet();
+    public int PeerCount => _connections.Count();
 
     public event EventHandler<(int pieceIdx, double completion)>? DownloadedPiece;
     public event EventHandler<int>? PeerCountChanged;
 
+    private byte[] _metainfoBytes;
     private Task? _thread;
-    private readonly List<PeerConnection> _connections = new();
-    internal Dictionary<int, List<Data.Chunk>> _downloadingPieces = new();
+    private List<PeerConnection> _connections;
+    internal Dictionary<int, List<Data.Chunk>> _downloadingPieces;
     internal PieceStorage _storage;
-    internal CancellationTokenSource _cancellation = new();
+    internal CancellationTokenSource _cancellation;
     private TrackerAnnouncer _announcer;
 
-    public TorrentTask(BT.Torrent torrent, string saveLocation)
+    public TorrentTask(byte[] metainfoBytes, string saveLocation)
     {
-        Torrent = torrent;
+        MetainfoBytes = metainfoBytes;
         Path = saveLocation;
         DownloadedPieces = new BitArray(Torrent.NumberOfPieces);
-        _storage = new PieceStorage(torrent, saveLocation);
-        _announcer = new TrackerAnnouncer(this);
-        _announcer.ReceivedPeers += (_, peers) => AddPeers(peers);
+        Populate();
     }
 
     public void Start()
@@ -100,6 +105,19 @@ public class TorrentTask : ITorrentTask
         _thread ??= Task
             .Run(ManagePeers, _cancellation.Token)
             .ContinueWith(LogException);
+    }
+
+    public void Populate()
+    {
+        CtrlChannel = Channel.CreateUnbounded<IPeerCtrlMsg>();
+        PeerId = Util.GenerateRandomString(20);
+
+        _storage = new PieceStorage(Torrent, Path);
+        _announcer = new TrackerAnnouncer(this);
+        _announcer.ReceivedPeers += (_, peers) => AddPeers(peers);
+        _cancellation = new CancellationTokenSource();
+        _downloadingPieces = new Dictionary<int, List<Data.Chunk>>();
+        _connections = new List<PeerConnection>();
     }
 
     public async Task Stop()
@@ -226,8 +244,8 @@ public class TorrentTask : ITorrentTask
 
     ~TorrentTask()
     {
-        _cancellation.Cancel();
-        CtrlChannel.Writer.TryComplete();
+        _cancellation?.Cancel();
+        CtrlChannel?.Writer.TryComplete();
         _thread?.Dispose();
     }
 }
